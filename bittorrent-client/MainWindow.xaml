@@ -5,8 +5,10 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:bittorrent_client"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
-    <Grid>
-        
-    </Grid>
+        WindowStartupLocation="CenterScreen"
+        Title="Squeek" Height="600" Width="800">
+        <Window.Content>
+            <local:DownloadWindow></local:DownloadWindow>
+        </Window.Content>
+
 </Window>

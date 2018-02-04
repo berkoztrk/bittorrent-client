@@ -4,6 +4,11 @@
              xmlns:local="clr-namespace:bittorrent_client"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <Style x:Key="Common" TargetType="{x:Type Page}">
+            <Setter Property="Background" Value="#363845"/>
+        </Style>
     </Application.Resources>
+    
+
+
 </Application>

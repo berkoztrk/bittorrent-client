@@ -1,4 +1,5 @@
-﻿using System;
+﻿using bittorrent_client.Util;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -21,6 +22,9 @@ namespace bittorrent_client
     /// </summary>
     public partial class MainWindow : Window
     {
+
+        private const string TEST_MAGNET_URI = "magnet:?xt=urn:btih:68e9c21729fadbd19b8933951fcc7ed2ab3e2b31&dn=Amelie+%282001%29+720p+BRrip_sujaidr&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fzer0day.ch%3A1337&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969";
+
         public MainWindow()
         {
             InitializeComponent();
@@ -29,28 +33,10 @@ namespace bittorrent_client
         public override void EndInit()
         {
             base.EndInit();
-          
-            TorrentFile torrent = BU.Decode(.DecodeTorrentFile("Ubuntu.torrent");
 
-            // Calculate info hash (e.g. "B415C913643E5FF49FE37D304BBB5E6E11AD5101")
-            string infoHash = torrent.CalculateInfoHash();
+            TorrentUtil.DownloadTorrent(TEST_MAGNET_URI);
 
-            // Get name and size of each file in 'files' list of 'info' dictionary ("multi-file mode")
-            BList files = (BList)torrent.Info["files"];
-            foreach (BDictionary file in files)
-            {
-                // File size in bytes (BNumber has implicit conversion to int and long)
-                int size = (BNumber)file["length"];
 
-                // List of all parts of the file path. 'dir1/dir2/file.ext' => dir1, dir2 and file.ext
-                BList path = (BList)file["path"];
-
-                // Last element is the file name
-                BString fileName = (BString)path.Last();
-
-                // Converts fileName (BString = bytes) to a string
-                string fileNameString = fileName.ToString(Encoding.UTF8);
-            }
         }
     }
 }
