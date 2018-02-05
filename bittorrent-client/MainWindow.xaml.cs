@@ -1,4 +1,4 @@
-﻿using bittorrent_client.Util;
+﻿using bittorrent_client.BO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,15 +28,14 @@ namespace bittorrent_client
         public MainWindow()
         {
             InitializeComponent();
+            log4net.Config.XmlConfigurator.Configure();
+            Loaded += MainWindow_Loaded;
         }
 
-        public override void EndInit()
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            base.EndInit();
-
-            TorrentUtil.DownloadTorrent(TEST_MAGNET_URI);
-
-
+            var torrentObject = new TorrentObject();
+            torrentObject.SaveTorrentFileFromMagnet(TEST_MAGNET_URI);
         }
     }
 }

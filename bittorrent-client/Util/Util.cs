@@ -4,16 +4,22 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Configuration;
+using System.IO;
 
-namespace bittorrent_client.Util
+namespace bittorrent_client
 {
     public static class Util
     {
         public static class AppSettings
         {
-            public static string TargetPath
+           public static string TorrentFilePath
             {
-                get { return GetAppSettingsValue("TargetPath"); }
+                get { return Path.Combine(Environment.CurrentDirectory, GetAppSettingsValue("TorrentFilePath")); }
+            }
+
+            public static string DownloadPath
+            {
+                get { return Path.Combine(Environment.CurrentDirectory, GetAppSettingsValue("DownloadPath")); }
             }
         }
 
