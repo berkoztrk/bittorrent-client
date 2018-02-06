@@ -28,14 +28,16 @@ namespace bittorrent_client
         public MainWindow()
         {
             InitializeComponent();
-            log4net.Config.XmlConfigurator.Configure();
+
+            log4net.Config.XmlConfigurator.ConfigureAndWatch(new System.IO.FileInfo("log4.config"));
             Loaded += MainWindow_Loaded;
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            var torrentObject = new TorrentObject();
-            torrentObject.SaveTorrentFileFromMagnet(TEST_MAGNET_URI);
+            //var torrentObject = new TorrentObject(TEST_MAGNET_URI);
+            //torrentObject.DownloadTorrent();
+            //var x = 5;
         }
     }
 }
