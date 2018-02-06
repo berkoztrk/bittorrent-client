@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using torrent_library;
 using torrent_library.Tracker;
@@ -20,9 +21,15 @@ namespace torrent_library_test
             var t = magnetURIObj.MagnetDefinition.tr[0];
             var tracker = new UDPTracker(t);
             tracker.Connect();
+            while (true)
+            {
+                var response = tracker.Scrape(magnetURIObj.MagnetDefinition.InfoHash);
+                Console.WriteLine("Seeder = {0}, Leecher {1}, Completed = {2}", response.Seeders, response.Leechers, response.Completed);
+                Thread.Sleep(2000);
+            }
 
 
-            Console.Read();
+            //Console.Read();
         }
     }
 }

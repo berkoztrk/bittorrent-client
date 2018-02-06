@@ -43,10 +43,12 @@
     <Compile Include="MagnetURIDefinition.cs" />
     <Compile Include="MagnetURI.cs" />
     <Compile Include="MagnetURIParser.cs" />
+    <Compile Include="Model\ScrapeResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TrackerAdress..cs" />
     <Compile Include="Tracker\UDPTracker.cs" />
     <Compile Include="Util\ArrayUtil.cs" />
+    <Compile Include="Util\BitConverterUtil.cs" />
     <Compile Include="Util\StringUtil.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
