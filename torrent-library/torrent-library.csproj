@@ -40,16 +40,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MagnetURIDefinition.cs" />
-    <Compile Include="MagnetURI.cs" />
-    <Compile Include="MagnetURIParser.cs" />
+    <Compile Include="Downloader\TorrentDownloader.cs" />
+    <Compile Include="Model\AnnounceResponse.cs" />
+    <Compile Include="Model\MagnetURIDefinition.cs" />
+    <Compile Include="Model\MagnetURI.cs" />
+    <Compile Include="MagnetUtils\MagnetURIParser.cs" />
     <Compile Include="Model\ScrapeResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TrackerAdress..cs" />
+    <Compile Include="Model\TrackerAdress..cs" />
     <Compile Include="Tracker\UDPTracker.cs" />
     <Compile Include="Util\ArrayUtil.cs" />
     <Compile Include="Util\BitConverterUtil.cs" />
+    <Compile Include="Util\CryptoUtil.cs" />
     <Compile Include="Util\StringUtil.cs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
