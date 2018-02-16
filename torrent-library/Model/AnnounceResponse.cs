@@ -9,6 +9,7 @@ namespace torrent_library.Model
 {
     public class AnnounceResponse
     {
+
         public int Action { get; set; }
         public int TransactionID { get; set; }
         public int Interval { get; set; }
@@ -16,12 +17,7 @@ namespace torrent_library.Model
         public int Seeders { get; set; }
         public int IPAddress { get; set; }
         public short Port { get; set; }
-
-        public List<int> IPAddresses { get; set; }
-        public List<ushort> Ports
-        {
-            get; set;
-        }
+        public List<IPPortPair> IPPort { get; set; }
 
         public AnnounceResponse() { }
 
@@ -37,8 +33,7 @@ namespace torrent_library.Model
             //24 + 6 * n  16 - bit integer TCP port
             //20 + 6 * N
 
-            IPAddresses = new List<int>();
-            Ports = new List<ushort>();
+            IPPort = new List<IPPortPair>();
 
             int n = ((announceResponse.Length - 20) / 6) - 1;
             Action = BitConverterUtil.ToInt(announceResponse.SubArray(0, 4));
@@ -52,15 +47,8 @@ namespace torrent_library.Model
                 var ipAddress = BitConverterUtil.ToInt(announceResponse.SubArray(20 + 6 * i, 4));
                 var port = BitConverterUtil.ToShortInt(announceResponse.SubArray(24 + 6 * i, 2));
 
-                IPAddresses.Add(ipAddress);
-                Ports.Add(port);
+                IPPort.Add(new IPPortPair(ipAddress, port));
             }
-            //IPAddress = BitConverterUtil.ToInt(announceResponse.SubArray(20, 4));
-            //Port = BitConverterUtil.ToShortInt(announceResponse.SubArray(24, 4));
-
-            //IPString = BitConverterUtil.IntToIP(IPAddress);
-            //PortString = Port.ToString();
-
         }
 
     }

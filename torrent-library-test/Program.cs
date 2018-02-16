@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -8,7 +9,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using torrent_library;
 using torrent_library.Downloader;
+using torrent_library.MagnetUtils;
 using torrent_library.Tracker;
+using torrent_library.Util;
 
 namespace torrent_library_test
 {
@@ -22,37 +25,42 @@ namespace torrent_library_test
         static void Main(string[] args)
         {
             var magnetURIObj = new MagnetURI(TEST_MAGNET_URI);
-            //var t = magnetURIObj.MagnetDefinition.tr[0];
-            //var tracker = new UDPTracker(t);
-            //tracker.ConnectToTracker();
+            var magnetToTorrent = new MagnetToTorrent(magnetURIObj.MagnetDefinition.InfoHash);
+            var path = magnetToTorrent.DownloadTorrentFile();
+            var torrent = TorrentParser.ParseTorrent(path);
+
 
             UDPTracker tracker = null;
             foreach (var t in magnetURIObj.MagnetDefinition.tr)
             {
-                tracker = new UDPTracker(t, magnetURIObj.MagnetDefinition.InfoHash);
+                tracker = new UDPTracker(t, magnetURIObj.MagnetDefinition.InfoHash, torrent);
+                tracker.ConnectToTracker();
                 tracker.Scrape();
+                tracker.Announce();
 
                 if (tracker.IsConnected)
                     break;
             }
 
-            if(tracker != null)
+            if (tracker != null)
             {
-                
-                while (true)
-                {
-                    var torrentDownloader = new TorrentDownloader(tracker._AnnounceResponse);
-                    var bytesDownloaded = torrentDownloader.Download();
+                var torrentDownloader = new TorrentDownloader(tracker._AnnounceRequest, tracker._AnnounceResponse, torrent);
+                torrentDownloader.StartDownload();
 
-                    if(bytesDownloaded == 0 && ((DateTime.Now  - tracker.LastAnnounced).TotalSeconds > tracker._AnnounceResponse.Interval))
-                    {
-                        Console.WriteLine((DateTime.Now - tracker.LastAnnounced).TotalSeconds);
-                        Console.WriteLine(tracker._AnnounceResponse.Interval);
-                        tracker.Scrape();
-                    }
+              
+                //while (true)
+                //{
 
-                    Thread.Sleep(500);
-                }
+
+                //    if (bytesDownloaded == 0 && ((DateTime.Now - tracker.LastAnnounced).TotalSeconds > tracker._AnnounceResponse.Interval))
+                //    {
+                //        Console.WriteLine((DateTime.Now - tracker.LastAnnounced).TotalSeconds);
+                //        Console.WriteLine(tracker._AnnounceResponse.Interval);
+                //        tracker.Scrape();
+                //    }
+
+                //    Thread.Sleep(500);
+                //}
             }
         }
     }

@@ -34,14 +34,14 @@ namespace torrent_library.Util
             }
         }
 
-        public static byte[] StringToByteArray(String hex)
-        {
-            int NumberChars = hex.Length;
-            byte[] bytes = new byte[NumberChars / 2];
-            for (int i = 0; i < NumberChars; i += 2)
-                bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
-            return BitConverter.IsLittleEndian ? bytes.Reverse().ToArray() : bytes;
-        }
+        //public static byte[] StringToByteArray(String hex)
+        //{
+        //    int NumberChars = hex.Length;
+        //    byte[] bytes = new byte[NumberChars / 2];
+        //    for (int i = 0; i < NumberChars; i += 2)
+        //        bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
+        //    return BitConverter.IsLittleEndian ? bytes.Reverse().ToArray() : bytes;
+        //}
 
         public static int ToInt(byte[] obj)
         {
@@ -113,6 +113,11 @@ namespace torrent_library.Util
             var byteArray = BitConverter.IsLittleEndian ? BitConverter.GetBytes(IP).Reverse().ToArray() : BitConverter.GetBytes(IP);
             string ipAddress = new IPAddress(byteArray).ToString();
             return ipAddress;
+        }
+
+        public static byte[] FromString(string obj)
+        {
+            return BitConverter.IsLittleEndian ? Encoding.ASCII.GetBytes(obj).Reverse().ToArray() : Encoding.ASCII.GetBytes(obj);
         }
     }
 }
