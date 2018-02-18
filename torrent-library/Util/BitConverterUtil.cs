@@ -12,14 +12,7 @@ namespace torrent_library.Util
     {
         public static byte[] GetBytes(int obj)
         {
-            if (BitConverter.IsLittleEndian)
-            {
-                return BitConverter.GetBytes(obj).Reverse().ToArray();
-            }
-            else
-            {
-                return BitConverter.GetBytes(obj);
-            }
+            return EndianBitConverter.Big.GetBytes(obj);
         }
 
         public static byte[] GetBytes(long obj)
@@ -32,6 +25,16 @@ namespace torrent_library.Util
             {
                 return BitConverter.GetBytes(obj);
             }
+        }
+
+        public static byte[] FromUInt(ushort length)
+        {
+            return BitConverter.IsLittleEndian ? BitConverter.GetBytes(length).Reverse().ToArray() : BitConverter.GetBytes(length);
+        }
+
+        internal static byte[] FromChar(char c)
+        {
+            return BitConverter.IsLittleEndian ? BitConverter.GetBytes(c).Reverse().ToArray() : BitConverter.GetBytes(c);
         }
 
         //public static byte[] StringToByteArray(String hex)
@@ -55,7 +58,7 @@ namespace torrent_library.Util
             }
         }
 
-        public static ushort ToShortInt(byte[] obj)
+        public static ushort ToUShortInt(byte[] obj)
         {
             if (BitConverter.IsLittleEndian)
             {
@@ -79,19 +82,17 @@ namespace torrent_library.Util
             }
         }
 
-        public static string ToString(byte[] obj)
+        public static char ToChar(byte[] v)
         {
-            if (BitConverter.IsLittleEndian)
-            {
-                return Encoding.Default.GetString(obj.Reverse().ToArray());
-            }
-            else
-            {
-                return Encoding.Default.GetString(obj);
-            }
+            return BitConverter.IsLittleEndian ? BitConverter.ToChar(v.Reverse().ToArray(), 0) : BitConverter.ToChar(v, 0);
         }
 
-        public static byte[] ConvertHexStringToByteArray(string hexString)
+        public static string ToString(byte[] obj)
+        {
+            return Encoding.UTF8.GetString(obj);
+        }
+
+        public static byte[] FromHexString(string hexString)
         {
             if (hexString.Length % 2 != 0)
             {
@@ -117,7 +118,15 @@ namespace torrent_library.Util
 
         public static byte[] FromString(string obj)
         {
-            return BitConverter.IsLittleEndian ? Encoding.ASCII.GetBytes(obj).Reverse().ToArray() : Encoding.ASCII.GetBytes(obj);
+            return Encoding.UTF8.GetBytes(obj);
+        }
+
+        public static string ByteArrayToHexString(byte[] ba)
+        {
+            StringBuilder hex = new StringBuilder(ba.Length * 2);
+            foreach (byte b in ba)
+                hex.AppendFormat("{0:x2}", b);
+            return hex.ToString();
         }
     }
 }

@@ -45,7 +45,7 @@ namespace torrent_library.Model
             for (int i = 0; i < n; i++)
             {
                 var ipAddress = BitConverterUtil.ToInt(announceResponse.SubArray(20 + 6 * i, 4));
-                var port = BitConverterUtil.ToShortInt(announceResponse.SubArray(24 + 6 * i, 2));
+                var port = BitConverterUtil.ToUShortInt(announceResponse.SubArray(24 + 6 * i, 2));
 
                 IPPort.Add(new IPPortPair(ipAddress, port));
             }

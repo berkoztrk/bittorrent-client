@@ -32,7 +32,7 @@ namespace torrent_library.Model
 
             byte[] _action = BitConverterUtil.GetBytes(1);
             byte[] _connectionID = BitConverterUtil.GetBytes(ConnectionID);
-            byte[] _infoHash = BitConverterUtil.ConvertHexStringToByteArray(InfoHash);
+            byte[] _infoHash = BitConverterUtil.FromHexString(InfoHash);
             byte[] _downloaded = BitConverterUtil.GetBytes((long)0);
             byte[] _left = BitConverterUtil.GetBytes(downloaded == 0 ? _Torrent.TotalSize : downloaded);
             byte[] _uploaded = BitConverterUtil.GetBytes((long)0);
@@ -64,24 +64,8 @@ namespace torrent_library.Model
             return requestByteArray;
         }
 
-        public byte[] GetDownloadHandshakeRequest()
-        {
-            var bittorrentProtocolLen = BitConverterUtil.FromString("19");
-            var bittorrentProtocol = BitConverterUtil.FromString("BitTorrent protocol");
-            var byteInfoHash = BitConverterUtil.ConvertHexStringToByteArray(InfoHash);
-            var empty = new byte[8];
+       
 
-            var len = bittorrentProtocolLen.Length + bittorrentProtocol.Length + empty.Length + byteInfoHash.Length + PeerID.Length;
 
-            byte[] downloadHandshakeRequest = new byte[len];
-            Buffer.BlockCopy(bittorrentProtocolLen, 0, downloadHandshakeRequest, 0, bittorrentProtocolLen.Length);
-            Buffer.BlockCopy(bittorrentProtocol, 0, downloadHandshakeRequest, bittorrentProtocolLen.Length, bittorrentProtocol.Length);
-            Buffer.BlockCopy(empty, 0, downloadHandshakeRequest, bittorrentProtocol.Length + bittorrentProtocolLen.Length, empty.Length);
-            Buffer.BlockCopy(byteInfoHash, 0, downloadHandshakeRequest, bittorrentProtocol.Length + empty.Length + bittorrentProtocolLen.Length, byteInfoHash.Length);
-            Buffer.BlockCopy(PeerID, 0, downloadHandshakeRequest, bittorrentProtocol.Length + empty.Length + byteInfoHash.Length + bittorrentProtocolLen.Length, PeerID.Length);
-
-            return downloadHandshakeRequest;
-
-        }
     }
 }

@@ -26,7 +26,7 @@ namespace torrent_library.Model
 
             byte[] _action = BitConverterUtil.GetBytes(ACTION);
             byte[] _connectionID = BitConverterUtil.GetBytes(ConnectionID);
-            byte[] _infoHash = BitConverterUtil.ConvertHexStringToByteArray(InfoHash);
+            byte[] _infoHash = BitConverterUtil.FromHexString(InfoHash);
 
             var requestArrayLength = transactionID.Length + _action.Length + _connectionID.Length + _infoHash.Length;
             var requestByteArray = new byte[requestArrayLength];

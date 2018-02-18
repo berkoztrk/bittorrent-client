@@ -34,14 +34,15 @@ namespace torrent_library.MagnetUtils
                     string fileName = InfoHash + ".torrent", myStringWebResource = null;
                     var savePath = @"C:\torrents\" + fileName;
               
-                       
-                    ConsoleUtil.Write("Trying to download torrent file from => " + remoteUri);
+                   
                     if (File.Exists(savePath))
                     {
                         ConsoleUtil.Write("File exists => " + savePath);
                         return savePath;
                     }
 
+
+                    ConsoleUtil.Write("File does not exists, trying to download torrent file from => " + remoteUri);
                     WebClient myWebClient = new WebClient();
                     myStringWebResource = remoteUri + fileName;
                     var x = myWebClient.ResponseHeaders;

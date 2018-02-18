@@ -52,8 +52,13 @@
     <Compile Include="Model\MagnetURIDefinition.cs" />
     <Compile Include="Model\MagnetURI.cs" />
     <Compile Include="MagnetUtils\MagnetURIParser.cs" />
+    <Compile Include="Model\Peer.cs" />
+    <Compile Include="Model\PeerHandshake.cs" />
+    <Compile Include="Util\EndianBitConverter.cs" />
+    <Compile Include="Util\PeerIDUtil.cs" />
     <Compile Include="Model\ScrapeRequest.cs" />
     <Compile Include="Model\ScrapeResponse.cs" />
+    <Compile Include="Model\TorrentInfo.cs" />
     <Compile Include="Model\TrackerAction.cs" />
     <Compile Include="Model\TrackerConnectRequest.cs" />
     <Compile Include="Model\TrackerConnectResponse.cs" />
@@ -63,7 +68,7 @@
     <Compile Include="Util\ArrayUtil.cs" />
     <Compile Include="Util\BitConverterUtil.cs" />
     <Compile Include="Util\ConsoleUtil.cs" />
-    <Compile Include="Util\CryptoUtil.cs" />
+    <Compile Include="Util\SHA1Utilcs.cs" />
     <Compile Include="Util\StringUtil.cs" />
     <Compile Include="Util\TorrentParser.cs" />
   </ItemGroup>

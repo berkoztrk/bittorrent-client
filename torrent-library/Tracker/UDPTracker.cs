@@ -38,6 +38,7 @@ namespace torrent_library.Tracker
         }
         public AnnounceResponse _AnnounceResponse = null;
         public AnnounceRequest _AnnounceRequest = null;
+        public ScrapeResponse _ScrapeResponse = null;
         public DateTime LastAnnounced = DateTime.MaxValue;
         public Torrent _Torrent { get; set; }
 
@@ -47,7 +48,7 @@ namespace torrent_library.Tracker
             _TrackerAddress = address;
             CalculateReceiveTimeout();
             InfoHash = infoHash;
-            PeerID = CryptoUtil.RandomPeerID();
+            PeerID = PeerIDUtil.GenerateRandom();
             _Torrent = torrent;
 
             IsConnected = false;
@@ -57,6 +58,7 @@ namespace torrent_library.Tracker
         {
             _ReceiveTimeout = (int)(15000 * Math.Pow((double)2, (double)_nTimeout));
         }
+
 
         public void ConnectToTracker()
         {
@@ -72,18 +74,18 @@ namespace torrent_library.Tracker
                     ConsoleUtil.WriteError("Connection timed out");
                     ConnectToTracker();
                 }
-                else
+                else if (_nTimeout > 8)
                 {
-                    ConsoleUtil.WriteError(e.Message);
-                    throw e;
+                    ConsoleUtil.WriteError("Couldn't connect to tracker.");
                 }
-                    
+                else
+                    ConsoleUtil.WriteError(e.Message);
             }
         }
 
         public void Connect()
         {
-            ConsoleUtil.Write("Connecting to tracker...");
+            ConsoleUtil.Write("Connecting to tracker... => {0}:{1}", _TrackerAddress.Host, _TrackerAddress.Port);
             using (UdpClient client = new UdpClient(_TrackerAddress.Host, _TrackerAddress.Port))
             {
 
@@ -105,7 +107,7 @@ namespace torrent_library.Tracker
                 ConnectionID = trackerConnectResponse.ConnectionID;
 
                 IsConnected = true;
-                ConsoleUtil.WriteSuccess("Connected to tracker.");
+                ConsoleUtil.WriteSuccess("Connected to tracker => {0}:{1}", _TrackerAddress.Host, _TrackerAddress.Port);
             }
         }
 
@@ -130,7 +132,6 @@ namespace torrent_library.Tracker
                 //16 + 12 * n 32 - bit integer leechers
                 //8 + 12 * N
 
-                //client.Client.ReceiveTimeout = _ReceiveTimeout;
                 var client = new UdpClient(_TrackerAddress.Host, _TrackerAddress.Port);
                 client.Client.ReceiveTimeout = _ReceiveTimeout;
 
@@ -144,7 +145,8 @@ namespace torrent_library.Tracker
                 NTimeout = 0;
 
                 var scrapeResponse = new ScrapeResponse(result);
-                ConsoleUtil.WriteSuccess("Scraped successfully!");
+                _ScrapeResponse = scrapeResponse;
+                ConsoleUtil.WriteSuccess("Scraped successfully! => {0}:{1}", _TrackerAddress.Host, _TrackerAddress.Port);
                 ConsoleUtil.Write("Seeders = {0}, Leechers {1}, Completed = {2}, ResultLength = {3}", scrapeResponse.Seeders, scrapeResponse.Leechers, scrapeResponse.Completed, scrapeResponse.ResponseLength);
 
             }

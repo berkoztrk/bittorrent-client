@@ -1,6 +1,7 @@
 ﻿using BencodeNET.Torrents;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -16,65 +17,66 @@ namespace torrent_library.Downloader
     public class TorrentDownloader
     {
 
-        public AnnounceResponse _AnnounceResponse { get; set; }
-        public AnnounceRequest _AnnounceRequest { get; set; }
-        public Torrent _Torrent { get; set; }
+        //public AnnounceResponse _AnnounceResponse { get; set; }
+        //public AnnounceRequest _AnnounceRequest { get; set; }
 
-        public TorrentDownloader(AnnounceRequest announceRequest, AnnounceResponse announceResponse, Torrent torrent)
+        public byte[] PeerID { get; set; }
+        public string InfoHash { get; set; }
+        public Torrent _Torrent { get; set; }
+        public TorrentInfo _TorrentInfo { get; set; }
+        public List<Peer> ConnectedPeers { get; set; }
+        public List<Peer> AllPeers { get; set; }
+        public PeerHandshake PeerHandshakeRequest { get; set; }
+
+
+        private List<Task> connectionTasks = new List<Task>();
+
+
+        public TorrentDownloader(AnnounceRequest announceRequest, AnnounceResponse announceResponse, Torrent torrent, TorrentInfo torrentInfo)
         {
-            _AnnounceRequest = announceRequest;
-            _AnnounceResponse = announceResponse;
+            PeerID = announceRequest.PeerID;
+            InfoHash = announceRequest.InfoHash;
             _Torrent = torrent;
+            _TorrentInfo = torrentInfo;
+            ConnectedPeers = new List<Peer>();
+            AllPeers = announceResponse.IPPort.Select(x => new Peer(x)).ToList();
+            PeerHandshakeRequest = new PeerHandshake(PeerID, InfoHash);
         }
 
         public TorrentDownloader() { }
 
-        public int StartDownload()
+        public void StartDownload()
         {
             ConsoleUtil.Write("Connecting to peers...");
-            for (int i = 0; i < _AnnounceResponse.IPPort.Count; i++)
-            {
-                ThreadPool.QueueUserWorkItem(new WaitCallback(Download), _AnnounceResponse.IPPort[i]);
-            }
-            return 0;
+            _TorrentInfo.TotalSeeders += AllPeers.Count;
+
+            // Connecting Peers
+            ConnectToPeers();
         }
 
-
-        private void Download(object ipPort)
+        private void ConnectToPeers()
         {
-            var tcpClient = new TcpClient();
-            tcpClient.ReceiveTimeout = 2000;
-
-            try
+            List<Task> connectionTasks = new List<Task>();
+            foreach (var peer in AllPeers)
             {
-                var IPPort = ipPort as IPPortPair;
-                var IP = IPPort.IP;
-                var Port = IPPort.Port;
-                tcpClient.Connect(IP, Port);
-                ConsoleUtil.WriteSuccess("Connected to peer. IP : {0}, Port : {1}", IP.ToString(), Port);
-                do
+                var task = Task.Run(new Action(delegate ()
                 {
-                    byte[] buffer = new byte[1024];
-                    if (tcpClient.Connected)
+                    var connected = peer.Connect();
+                    if (connected)
                     {
-
-                        var stream = tcpClient.GetStream();
-                        var downloadHandshakeRequest = _AnnounceRequest.GetDownloadHandshakeRequest();
-                        stream.Write(downloadHandshakeRequest, 0, downloadHandshakeRequest.Length);
-                        if (stream.DataAvailable)
-                        {
-                            stream.Read(buffer, 0, buffer.Length);
-                            ConsoleUtil.WriteSuccess("Received {0} not empty data", buffer.Where(x => x != 0).Count());
-                        }
+                        ConnectedPeers.Add(peer);
+                        peer.HandShake(PeerHandshakeRequest);
                     }
-                } while (tcpClient.Connected);
+                        
+                }));
+                connectionTasks.Add(task);
+            }
 
-            }
-            catch (Exception e)
+            Task.WhenAll(connectionTasks).ContinueWith(x =>
             {
-                ConsoleUtil.WriteError(e.Message);
-                tcpClient.Dispose();
-            }
+                ConsoleUtil.Write("Connected to {0} peers.", ConnectedPeers.Count);
+                _TorrentInfo.ConnectedSeeders = ConnectedPeers.Count;
+            });
         }
 
     }
