@@ -12,7 +12,7 @@ using torrent_library.Util;
 
 namespace torrent_library.Tracker
 {
-    public class UDPTracker
+    public class Tracker
     {
 
 
@@ -43,12 +43,12 @@ namespace torrent_library.Tracker
         public Torrent _Torrent { get; set; }
 
 
-        public UDPTracker(TrackerAdress address, string infoHash, Torrent torrent)
+        public Tracker(TrackerAdress address, string infoHash, Torrent torrent, TorrentManager torrentInfo)
         {
             _TrackerAddress = address;
             CalculateReceiveTimeout();
             InfoHash = infoHash;
-            PeerID = PeerIDUtil.GenerateRandom();
+            PeerID = torrentInfo.PeerID;
             _Torrent = torrent;
 
             IsConnected = false;
@@ -71,15 +71,20 @@ namespace torrent_library.Tracker
                 if (e.SocketErrorCode == SocketError.TimedOut && _nTimeout <= 8)
                 {
                     NTimeout++;
-                    ConsoleUtil.WriteError("Connection timed out");
+                    ConsoleUtil.WriteError("Connection timed out while connecting to tracker : " + _TrackerAddress.FullAddress);
                     ConnectToTracker();
                 }
                 else if (_nTimeout > 8)
                 {
-                    ConsoleUtil.WriteError("Couldn't connect to tracker.");
+                    ConsoleUtil.WriteError("Couldn't connect to tracker " + _TrackerAddress.FullAddress);
+                    throw e;
                 }
                 else
-                    ConsoleUtil.WriteError(e.Message);
+                {
+                    ConsoleUtil.WriteError("Couldn't connect to tracker " + _TrackerAddress.FullAddress + " reason: " + e.Message);
+                    throw e;
+                }
+
             }
         }
 
@@ -101,7 +106,7 @@ namespace torrent_library.Tracker
                 NTimeout = 0;
 
                 if (result.Length < 16)
-                    throw new Exception("Couldn't received response correctly.");
+                    throw new Exception("Couldn't received response correctly from tracker " + _TrackerAddress.FullAddress);
 
                 var trackerConnectResponse = new TrackerConnectResponse(connectRequest, result);
                 ConnectionID = trackerConnectResponse.ConnectionID;
@@ -115,15 +120,14 @@ namespace torrent_library.Tracker
         {
             try
             {
-                ConsoleUtil.Write("Sending scrape request...");
+                ConsoleUtil.Write("Sending scrape request to tracker " + _TrackerAddress.FullAddress + "...");
                 //0               64 - bit integer connection_id
                 //8               32 - bit integer action          2 // scrape
                 //12              32 - bit integer transaction_id
                 //16 + 20 * n     20 - byte string info_hash
                 //16 + 20 * N
 
-
-                //                scrape response:
+                // scrape response:
                 //Offset Size            Name Value
                 //0           32 - bit integer action          2 // scrape
                 //4           32 - bit integer transaction_id
@@ -155,7 +159,7 @@ namespace torrent_library.Tracker
                 if (e.SocketErrorCode == SocketError.TimedOut && _nTimeout <= 8)
                 {
                     NTimeout++;
-                    ConsoleUtil.WriteError("Scrape request timed out");
+                    ConsoleUtil.WriteError("Scrape request timed out " + _TrackerAddress.FullAddress);
                     Scrape();
                 }
             }
@@ -166,7 +170,7 @@ namespace torrent_library.Tracker
         {
             try
             {
-                ConsoleUtil.Write("Sending Announce request...");
+                ConsoleUtil.Write("Sending Announce request to tracker " + _TrackerAddress.FullAddress + "...");
                 var announceRequest = new AnnounceRequest(ConnectionID, InfoHash, AnnounceAction.Started, PeerID, _Torrent);
                 this._AnnounceRequest = announceRequest;
                 var announceRequestArray = announceRequest.GetRequestArray();
@@ -181,13 +185,18 @@ namespace torrent_library.Tracker
                 _AnnounceResponse = new AnnounceResponse(result);
                 LastAnnounced = DateTime.Now;
                 NTimeout = 0;
-                ConsoleUtil.WriteSuccess("Announced successfully.");
+                ConsoleUtil.WriteSuccess("Announced successfully " + _TrackerAddress.FullAddress);
+                Task.Run(() =>
+                {
+                    Task.Delay(_AnnounceResponse.Interval * 1000).Wait();
+                    Announce();
+                });
             }
             catch (SocketException e)
             {
                 if (e.SocketErrorCode == SocketError.TimedOut && _nTimeout <= 8)
                 {
-                    ConsoleUtil.WriteError("Announce request timed out");
+                    ConsoleUtil.WriteError("Announce request timed out " + _TrackerAddress.FullAddress);
                     NTimeout++;
                     Announce();
                 }

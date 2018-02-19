@@ -12,50 +12,66 @@ namespace torrent_library.MagnetUtils
 {
     public class MagnetToTorrent
     {
+        private const int TIMEOUT = 10; // seconds
         public string InfoHash { get; set; }
+        public bool DownloadCompleted { get; set; }
         private static readonly string[] Services = new string[]
         {
-            @"http://itorrents.org/torrent/{0}.torrent"
+            @"http://itorrents.org/torrent/{0}.torrent",
+            @"http://archive.org/download/{0}/{0}_archive.torrent"
         };
 
         public MagnetToTorrent(string infoHash)
         {
             this.InfoHash = infoHash;
+            this.DownloadCompleted = false;
         }
 
-        public string DownloadTorrentFile()
+        public string Download()
+        {
+            string fileName = InfoHash + ".torrent";
+            var savePath = @"C:\torrents\" + fileName;
+
+
+
+            var started = DateTime.Now;
+            DownloadTorrentFile(fileName, savePath);
+            if (DownloadCompleted)
+                return savePath;
+            return null;
+        }
+
+        private void DownloadTorrentFile(string fileName, string savePath)
         {
             foreach (var service in Services)
             {
-
+                string myStringWebResource = null;
                 try
                 {
-                    string remoteUri = string.Format(service, InfoHash);
-                    string fileName = InfoHash + ".torrent", myStringWebResource = null;
-                    var savePath = @"C:\torrents\" + fileName;
-              
-                   
+                    string remoteUri = string.Format(service,
+                       InfoHash.ToUpperInvariant());
+
                     if (File.Exists(savePath))
                     {
                         ConsoleUtil.Write("File exists => " + savePath);
-                        return savePath;
+                        DownloadCompleted = true;
+                        return;
                     }
-
-
                     ConsoleUtil.Write("File does not exists, trying to download torrent file from => " + remoteUri);
                     WebClient myWebClient = new WebClient();
-                    myStringWebResource = remoteUri + fileName;
-                    var x = myWebClient.ResponseHeaders;
-                    myWebClient.DownloadFile(myStringWebResource, savePath);
-                    ConsoleUtil.WriteSuccess("Downloaded {0}.torrent file successfully", InfoHash);
-                    return savePath;
+                    myStringWebResource = remoteUri;
+                    myWebClient.DownloadFile(new Uri(myStringWebResource), savePath);
                 }
                 catch (Exception e)
                 {
-                    ConsoleUtil.WriteError(e.Message); 
+                    if (File.Exists(savePath))
+                    {
+                        File.Delete(savePath);
+                    }
+                    ConsoleUtil.WriteError(e.Message);
                 }
             }
-            return null;
+
         }
 
     }

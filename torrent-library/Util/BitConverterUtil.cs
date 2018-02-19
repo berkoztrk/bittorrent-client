@@ -17,74 +17,37 @@ namespace torrent_library.Util
 
         public static byte[] GetBytes(long obj)
         {
-            if (BitConverter.IsLittleEndian)
-            {
-                return BitConverter.GetBytes(obj).Reverse().ToArray();
-            }
-            else
-            {
-                return BitConverter.GetBytes(obj);
-            }
+            return EndianBitConverter.Big.GetBytes(obj);
         }
 
         public static byte[] FromUInt(ushort length)
         {
-            return BitConverter.IsLittleEndian ? BitConverter.GetBytes(length).Reverse().ToArray() : BitConverter.GetBytes(length);
+            return EndianBitConverter.Big.GetBytes(length);
         }
 
-        internal static byte[] FromChar(char c)
+        public static byte[] FromChar(char c)
         {
-            return BitConverter.IsLittleEndian ? BitConverter.GetBytes(c).Reverse().ToArray() : BitConverter.GetBytes(c);
+            return EndianBitConverter.Big.GetBytes(c);
         }
-
-        //public static byte[] StringToByteArray(String hex)
-        //{
-        //    int NumberChars = hex.Length;
-        //    byte[] bytes = new byte[NumberChars / 2];
-        //    for (int i = 0; i < NumberChars; i += 2)
-        //        bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
-        //    return BitConverter.IsLittleEndian ? bytes.Reverse().ToArray() : bytes;
-        //}
 
         public static int ToInt(byte[] obj)
         {
-            if (BitConverter.IsLittleEndian)
-            {
-                return BitConverter.ToInt32(obj.Reverse().ToArray(), 0);
-            }
-            else
-            {
-                return BitConverter.ToInt32(obj, 0);
-            }
+            return EndianBitConverter.Big.ToInt32(obj);
         }
 
         public static ushort ToUShortInt(byte[] obj)
         {
-            if (BitConverter.IsLittleEndian)
-            {
-                return BitConverter.ToUInt16(obj.Reverse().ToArray(), 0);
-            }
-            else
-            {
-                return BitConverter.ToUInt16(obj, 0);
-            }
+            return EndianBitConverter.Big.ToUInt16(obj);
         }
 
         public static long ToLong(byte[] obj)
         {
-            if (BitConverter.IsLittleEndian)
-            {
-                return BitConverter.ToInt64(obj.Reverse().ToArray(), 0);
-            }
-            else
-            {
-                return BitConverter.ToInt64(obj, 0);
-            }
+            return EndianBitConverter.Big.ToInt64(obj);
         }
 
         public static char ToChar(byte[] v)
         {
-            return BitConverter.IsLittleEndian ? BitConverter.ToChar(v.Reverse().ToArray(), 0) : BitConverter.ToChar(v, 0);
+            return EndianBitConverter.Big.ToChar(v);
         }
 
         public static string ToString(byte[] obj)
@@ -128,5 +91,6 @@ namespace torrent_library.Util
                 hex.AppendFormat("{0:x2}", b);
             return hex.ToString();
         }
+
     }
 }

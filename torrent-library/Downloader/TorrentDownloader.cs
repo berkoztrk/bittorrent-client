@@ -1,5 +1,6 @@
 ﻿using BencodeNET.Torrents;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,66 +18,83 @@ namespace torrent_library.Downloader
     public class TorrentDownloader
     {
 
-        //public AnnounceResponse _AnnounceResponse { get; set; }
-        //public AnnounceRequest _AnnounceRequest { get; set; }
-
         public byte[] PeerID { get; set; }
         public string InfoHash { get; set; }
         public Torrent _Torrent { get; set; }
-        public TorrentInfo _TorrentInfo { get; set; }
-        public List<Peer> ConnectedPeers { get; set; }
-        public List<Peer> AllPeers { get; set; }
+        public TorrentManager _TorrentInfo { get; set; }
         public PeerHandshake PeerHandshakeRequest { get; set; }
-
 
         private List<Task> connectionTasks = new List<Task>();
 
 
-        public TorrentDownloader(AnnounceRequest announceRequest, AnnounceResponse announceResponse, Torrent torrent, TorrentInfo torrentInfo)
+        public TorrentDownloader(Torrent torrent, TorrentManager torrentInfo)
         {
-            PeerID = announceRequest.PeerID;
-            InfoHash = announceRequest.InfoHash;
+            PeerID = torrentInfo.PeerID;
+            InfoHash = torrent.OriginalInfoHash;
             _Torrent = torrent;
             _TorrentInfo = torrentInfo;
-            ConnectedPeers = new List<Peer>();
-            AllPeers = announceResponse.IPPort.Select(x => new Peer(x)).ToList();
             PeerHandshakeRequest = new PeerHandshake(PeerID, InfoHash);
         }
 
         public TorrentDownloader() { }
 
-        public void StartDownload()
+        private void DownloadPiece()
         {
-            ConsoleUtil.Write("Connecting to peers...");
-            _TorrentInfo.TotalSeeders += AllPeers.Count;
+            while (!_TorrentInfo.DownloadCompleted)
+            {
 
-            // Connecting Peers
-            ConnectToPeers();
+                foreach (var connectedPeer in _TorrentInfo.NotConnectedPeers.Where(x => x.Handshaked))
+                {
+                    do
+                    {
+                        if (connectedPeer.Unchoked )
+                        {
+                            connectedPeer.SendRequest();
+                            ConsoleUtil.Write("Sent download request to peer " + connectedPeer.UniqueID.ToString());
+                        }
+                    } while (connectedPeer.Unchoked);
+                    
+                }
+            }
+
         }
 
-        private void ConnectToPeers()
+        public void StartDownload()
         {
+            // Connecting Peers
+            Task.Run(() => ConnectToPeers(_TorrentInfo.NotConnectedPeers));
+
+            Task.Run(() => DownloadPiece());
+        }
+
+        private void ConnectToPeers(BlockingCollection<Peer> notConnectedPeers)
+        {
+            if (notConnectedPeers.Count > 0)
+                ConsoleUtil.Write("Connecting to peers...");
+
             List<Task> connectionTasks = new List<Task>();
-            foreach (var peer in AllPeers)
+            foreach (var peer in notConnectedPeers.Where(x => !x.Unchoked))
             {
-                var task = Task.Run(new Action(delegate ()
+                var task = Task.Run(() =>
                 {
                     var connected = peer.Connect();
                     if (connected)
                     {
-                        ConnectedPeers.Add(peer);
                         peer.HandShake(PeerHandshakeRequest);
+                        if (peer.Handshaked)
+                        {
+                            var response = peer.SendInterested();
+                        }
                     }
-                        
-                }));
+                });
                 connectionTasks.Add(task);
             }
 
             Task.WhenAll(connectionTasks).ContinueWith(x =>
-            {
-                ConsoleUtil.Write("Connected to {0} peers.", ConnectedPeers.Count);
-                _TorrentInfo.ConnectedSeeders = ConnectedPeers.Count;
-            });
+                {
+                    if (!_TorrentInfo.DownloadCompleted)
+                        ConnectToPeers(_TorrentInfo.NotConnectedPeers);
+                });
         }
 
     }

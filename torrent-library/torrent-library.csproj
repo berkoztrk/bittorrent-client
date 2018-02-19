@@ -30,6 +30,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Bencode, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\Bencode.1.1.0\lib\Bencode.dll</HintPath>
+    </Reference>
     <Reference Include="BencodeNET, Version=2.2.22.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\BencodeNET.2.2.22\lib\net45\BencodeNET.dll</HintPath>
     </Reference>
@@ -48,6 +51,7 @@
     <Compile Include="Model\AnnounceAction.cs" />
     <Compile Include="Model\AnnounceRequest.cs" />
     <Compile Include="Model\AnnounceResponse.cs" />
+    <Compile Include="Model\Global.cs" />
     <Compile Include="Model\IPPortPair.cs" />
     <Compile Include="Model\MagnetURIDefinition.cs" />
     <Compile Include="Model\MagnetURI.cs" />
@@ -70,6 +74,7 @@
     <Compile Include="Util\ConsoleUtil.cs" />
     <Compile Include="Util\SHA1Utilcs.cs" />
     <Compile Include="Util\StringUtil.cs" />
+    <Compile Include="Util\TorrentFileWriter.cs" />
     <Compile Include="Util\TorrentParser.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -14,7 +14,6 @@ namespace torrent_library.Util
         {
             var parser = new BencodeParser();
             var torrent = parser.Parse<Torrent>(path);
-            //var x = 5;
             return torrent;
         }
     }
