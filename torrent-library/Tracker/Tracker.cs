@@ -15,13 +15,13 @@ namespace torrent_library.Tracker
     public class Tracker
     {
 
-
         private int _nTimeout = 0;
         private int _ReceiveTimeout = 0;
         private long ConnectionID = -1;
         private string InfoHash { get; set; }
         private byte[] PeerID { get; set; }
         private TrackerAdress _TrackerAddress { get; set; }
+        private TorrentManager Manager { get; set; }
 
         public bool IsConnected
         {
@@ -43,13 +43,14 @@ namespace torrent_library.Tracker
         public Torrent _Torrent { get; set; }
 
 
-        public Tracker(TrackerAdress address, string infoHash, Torrent torrent, TorrentManager torrentInfo)
+        public Tracker(TrackerAdress address, Torrent torrent, TorrentManager torrentInfo)
         {
             _TrackerAddress = address;
             CalculateReceiveTimeout();
-            InfoHash = infoHash;
+            InfoHash = torrent.OriginalInfoHash;
             PeerID = torrentInfo.PeerID;
             _Torrent = torrent;
+            Manager = torrentInfo;
 
             IsConnected = false;
         }
@@ -68,24 +69,26 @@ namespace torrent_library.Tracker
             }
             catch (SocketException e)
             {
+
                 if (e.SocketErrorCode == SocketError.TimedOut && _nTimeout <= 8)
                 {
                     NTimeout++;
-                    ConsoleUtil.WriteError("Connection timed out while connecting to tracker : " + _TrackerAddress.FullAddress);
+                    //ConsoleUtil.WriteError("Connection timed out while connecting to tracker : " + _TrackerAddress.FullAddress, ConsoleUtil.LogSource.Tracker);
                     ConnectToTracker();
-                }
-                else if (_nTimeout > 8)
-                {
-                    ConsoleUtil.WriteError("Couldn't connect to tracker " + _TrackerAddress.FullAddress);
-                    throw e;
                 }
                 else
                 {
-                    ConsoleUtil.WriteError("Couldn't connect to tracker " + _TrackerAddress.FullAddress + " reason: " + e.Message);
+                    //ConsoleUtil.WriteError("Couldn't connect to tracker " + _TrackerAddress.FullAddress + " reason: " + e.Message, ConsoleUtil.LogSource.Tracker);
                     throw e;
                 }
 
             }
+        }
+
+        public void EndConnection()
+        {
+            NTimeout = 8;
+            return;
         }
 
         public void Connect()
@@ -112,7 +115,7 @@ namespace torrent_library.Tracker
                 ConnectionID = trackerConnectResponse.ConnectionID;
 
                 IsConnected = true;
-                ConsoleUtil.WriteSuccess("Connected to tracker => {0}:{1}", _TrackerAddress.Host, _TrackerAddress.Port);
+                ConsoleUtil.WriteSuccess("Connected to tracker => {0}:{1}",  _TrackerAddress.Host, _TrackerAddress.Port);
             }
         }
 
@@ -150,7 +153,7 @@ namespace torrent_library.Tracker
 
                 var scrapeResponse = new ScrapeResponse(result);
                 _ScrapeResponse = scrapeResponse;
-                ConsoleUtil.WriteSuccess("Scraped successfully! => {0}:{1}", _TrackerAddress.Host, _TrackerAddress.Port);
+                ConsoleUtil.WriteSuccess("Scraped successfully! => {0}:{1}",_TrackerAddress.Host, _TrackerAddress.Port);
                 ConsoleUtil.Write("Seeders = {0}, Leechers {1}, Completed = {2}, ResultLength = {3}", scrapeResponse.Seeders, scrapeResponse.Leechers, scrapeResponse.Completed, scrapeResponse.ResponseLength);
 
             }
@@ -178,19 +181,32 @@ namespace torrent_library.Tracker
                 var client = new UdpClient(_TrackerAddress.Host, _TrackerAddress.Port);
                 client.Client.ReceiveTimeout = _ReceiveTimeout;
 
-                var resp = client.Send(announceRequestArray, announceRequestArray.Length);
+                var resp = client.SendAsync(announceRequestArray, announceRequestArray.Length);
                 var remoteEndPoint = new IPEndPoint(IPAddress.Any, 0);
                 var result = client.Receive(ref remoteEndPoint);
 
                 _AnnounceResponse = new AnnounceResponse(result);
                 LastAnnounced = DateTime.Now;
                 NTimeout = 0;
+
                 ConsoleUtil.WriteSuccess("Announced successfully " + _TrackerAddress.FullAddress);
-                Task.Run(() =>
+
+                Manager.AddPeers(_AnnounceResponse.IPPort.Select(x => new Peer(x)).ToList());
+
+                if (_AnnounceResponse.Interval * 1000 < Int32.MaxValue)
                 {
-                    Task.Delay(_AnnounceResponse.Interval * 1000).Wait();
-                    Announce();
-                });
+                    Task.Run(() =>
+                    {
+                        try
+                        {
+                            Task.Delay(_AnnounceResponse.Interval * 1000).Wait();
+                            Announce();
+                        }
+                        catch (Exception e) { }
+
+                    });
+                }
+
             }
             catch (SocketException e)
             {

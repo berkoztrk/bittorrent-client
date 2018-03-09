@@ -32,8 +32,6 @@ namespace torrent_library.MagnetUtils
             string fileName = InfoHash + ".torrent";
             var savePath = @"C:\torrents\" + fileName;
 
-
-
             var started = DateTime.Now;
             DownloadTorrentFile(fileName, savePath);
             if (DownloadCompleted)

@@ -8,8 +8,10 @@ namespace torrent_library.Util
 {
     public static class ConsoleUtil
     {
+
         public static void WriteError(string msg, params object[] args)
         {
+
             Console.ForegroundColor = ConsoleColor.Red;
             Console.WriteLine(msg, args);
         }
@@ -20,8 +22,9 @@ namespace torrent_library.Util
             Console.WriteLine(msg);
         }
 
-        public static void WriteSuccess(string msg, params object[] args)
+        public static void WriteSuccess(string msg,params object[] args)
         {
+
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine(msg, args);
         }
@@ -34,12 +37,14 @@ namespace torrent_library.Util
 
         public static void Write(string msg)
         {
+
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine(msg);
         }
 
         public static void Write(string msg, params object[] args)
         {
+  
             Console.ForegroundColor = ConsoleColor.White;
             Console.WriteLine(msg, args);
         }

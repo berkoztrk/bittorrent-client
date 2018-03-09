@@ -58,5 +58,9 @@ namespace torrent_library.Model
             return handshake;
         }
 
+        public override string ToString()
+        {
+            return Length.ToString() + BittorrentProtocol + InfoHash + PeerIDAsString;
+        }
     }
 }

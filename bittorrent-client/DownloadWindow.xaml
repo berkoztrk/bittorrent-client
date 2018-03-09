@@ -7,24 +7,10 @@
       mc:Ignorable="d" 
       d:DesignHeight="600" d:DesignWidth="800" Style="{StaticResource Common}" 
       >
-    <DataGrid x:Name="DatGridDownloads" Margin="0" AutoGenerateColumns="False">
+    <DataGrid x:Name="DataGridDownloads" ItemsSource="{Binding DownloadsDataSource}" CanUserAddRows="false" Margin="0"  AutoGenerateColumns="False">
         <DataGrid.Columns>
             <DataGridTextColumn Width="3*" Binding="{Binding Name}" Header="Name" IsReadOnly="True"/>
-            <DataGridTemplateColumn Header="Progress (%)" Width="4*">
-                <DataGridTemplateColumn.CellTemplate>
-                    <DataTemplate>
-                        <Grid>
-                            <ProgressBar Grid.Row="0" Grid.Column="0"  Minimum="0" Maximum="200" Value="{Binding OrderCounts,Mode=OneWay}" ToolTip="{Binding OrderCounts,Mode=OneWay}">
-                            </ProgressBar>
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding OrderCounts,Mode=OneWay}" HorizontalAlignment="Center" VerticalAlignment="Center"></TextBlock>
-                        </Grid>
-                    </DataTemplate>
-                </DataGridTemplateColumn.CellTemplate>
-            </DataGridTemplateColumn>
-            <DataGridTextColumn Width="3*" Binding="{Binding Seed}" Header="Seeders" IsReadOnly="True"/>
-            <DataGridTextColumn Width="3*" Binding="{Binding Leech}" Header="Leechers" IsReadOnly="True"/>
-            <DataGridTextColumn Width="3*" Binding="{Binding DLSpeed}" Header="Download Speed" IsReadOnly="True"/>
-            <DataGridTextColumn Width="3*" Binding="{Binding ULSpeed}" Header="Upload Speed " IsReadOnly="True"/>
+            <DataGridTextColumn Width="3*" Binding="{Binding Peers}" Header="Peers" IsReadOnly="True"/>
         </DataGrid.Columns>
     </DataGrid>
 </Page>

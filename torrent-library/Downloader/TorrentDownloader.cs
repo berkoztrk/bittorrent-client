@@ -1,5 +1,6 @@
 ﻿using BencodeNET.Torrents;
 using System;
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -17,85 +18,74 @@ namespace torrent_library.Downloader
 {
     public class TorrentDownloader
     {
+        private TorrentFileWriter FileWriter { get; set; }
+        public TorrentManager Manager { get; set; }
 
-        public byte[] PeerID { get; set; }
-        public string InfoHash { get; set; }
-        public Torrent _Torrent { get; set; }
-        public TorrentManager _TorrentInfo { get; set; }
-        public PeerHandshake PeerHandshakeRequest { get; set; }
-
-        private List<Task> connectionTasks = new List<Task>();
-
-
-        public TorrentDownloader(Torrent torrent, TorrentManager torrentInfo)
+        public TorrentDownloader(TorrentManager torrentInfo)
         {
-            PeerID = torrentInfo.PeerID;
-            InfoHash = torrent.OriginalInfoHash;
-            _Torrent = torrent;
-            _TorrentInfo = torrentInfo;
-            PeerHandshakeRequest = new PeerHandshake(PeerID, InfoHash);
+            Manager = torrentInfo;
+            this.FileWriter = new TorrentFileWriter();
         }
 
         public TorrentDownloader() { }
 
-        private void DownloadPiece()
-        {
-            while (!_TorrentInfo.DownloadCompleted)
-            {
-
-                foreach (var connectedPeer in _TorrentInfo.NotConnectedPeers.Where(x => x.Handshaked))
-                {
-                    do
-                    {
-                        if (connectedPeer.Unchoked )
-                        {
-                            connectedPeer.SendRequest();
-                            ConsoleUtil.Write("Sent download request to peer " + connectedPeer.UniqueID.ToString());
-                        }
-                    } while (connectedPeer.Unchoked);
-                    
-                }
-            }
-
-        }
-
         public void StartDownload()
         {
-            // Connecting Peers
-            Task.Run(() => ConnectToPeers(_TorrentInfo.NotConnectedPeers));
-
-            Task.Run(() => DownloadPiece());
+            Download();
         }
 
-        private void ConnectToPeers(BlockingCollection<Peer> notConnectedPeers)
+        private void Download()
         {
-            if (notConnectedPeers.Count > 0)
-                ConsoleUtil.Write("Connecting to peers...");
-
-            List<Task> connectionTasks = new List<Task>();
-            foreach (var peer in notConnectedPeers.Where(x => !x.Unchoked))
-            {
-                var task = Task.Run(() =>
-                {
-                    var connected = peer.Connect();
-                    if (connected)
-                    {
-                        peer.HandShake(PeerHandshakeRequest);
-                        if (peer.Handshaked)
-                        {
-                            var response = peer.SendInterested();
-                        }
-                    }
-                });
-                connectionTasks.Add(task);
-            }
-
-            Task.WhenAll(connectionTasks).ContinueWith(x =>
-                {
-                    if (!_TorrentInfo.DownloadCompleted)
-                        ConnectToPeers(_TorrentInfo.NotConnectedPeers);
-                });
+            Task.Factory.StartNew(() => ConnectToPeers());
+            Task.Factory.StartNew(() => DownloadFromConnectedPeers());
+            Task.Factory.StartNew(() => WriteDownloadedDataToFile());
         }
 
+        private void WriteDownloadedDataToFile()
+        {
+            while (Manager.Running)
+            {
+                RequestedBlock block;
+                var result = Manager.FileQueue.TryDequeue(out block);
+                if (result)
+                {
+                    FileWriter.WriteData("asdas.pdf", block.Data, TorrentPieceUtil.GetFileOffset(block, Manager.Torrent));
+                }
+                Thread.Sleep(50);
+            }
+        }
+
+        private void DownloadFromConnectedPeers()
+        {
+            while (!Manager.DownloadCompleted)
+            {
+                var connectedPeers = Manager.Peers.Where(X => !X.Value.IsDisconnected).Select(x => x.Value);
+                foreach (var peer in connectedPeers)
+                {
+                    peer.SendKeepAlive();
+                    peer.SendInterested();
+
+                    if (peer.IsPieceRequested)
+                        continue;
+
+                    var requestBlock = RequestedBlock.GetBlock(peer, Manager);
+                    if (requestBlock != null)
+                    {
+                        peer.SendRequest(requestBlock);
+                    }
+                }
+            }
+        }
+
+        private void ConnectToPeers()
+        {
+            while (!Manager.DownloadCompleted)
+            {
+                Manager.Peers.Select(x => x.Value)
+                            .Where(x => !x.ConnectionRequestSent && x.IsDisconnected).ToList()
+                            .ForEach(x => x.Connect());
+                Thread.Sleep(500);
+            }
+        }
     }
 }

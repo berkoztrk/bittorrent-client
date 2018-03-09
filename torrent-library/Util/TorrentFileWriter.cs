@@ -12,15 +12,14 @@ namespace torrent_library.Util
     {
         private ReaderWriterLockSlim lock_ = new ReaderWriterLockSlim();
 
-        public void WriteData(string path, byte[] bytes)
+        public void WriteData(string path, byte[] bytes, long offset)
         {
             lock_.TryEnterWriteLock(int.MaxValue);
             try
             {
-                using (FileStream fs = new FileStream(@"C:\torrents\" + path + ".downloading", FileMode.Append))
+                using (FileStream fs = new FileStream(@"C:\torrents\" + path, FileMode.Append))
                 {
                     fs.Write(bytes, 0, bytes.Length);
-                    fs.Flush();
                 }
             }
             finally
@@ -28,6 +27,5 @@ namespace torrent_library.Util
                 lock_.ExitWriteLock();
             }
         }
-
-    } // eo class FileWriter
+    } 
 }

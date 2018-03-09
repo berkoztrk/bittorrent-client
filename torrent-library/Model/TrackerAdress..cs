@@ -17,7 +17,7 @@ namespace torrent_library
         {
             this.FullAddress = address;
             this.Host = address.Slice(address.IndexOfNth("/", 2) + 1, address.IndexOfNth(":", 2));
-            this.Port = int.Parse(address.Substring(address.IndexOfNth(":", 2) + 1));
+            this.Port = int.Parse(address.Substring(address.IndexOfNth(":", 2) + 1).Replace("/announce", ""));
         }
     }
 }

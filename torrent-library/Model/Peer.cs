@@ -1,12 +1,17 @@
 ﻿using BencodeNET.Torrents;
+using ReactiveSockets;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reactive.Concurrency;
+using System.Reactive.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using torrent_library.Util;
 
@@ -14,21 +19,6 @@ namespace torrent_library.Model
 {
     public class Peer
     {
-        public Guid UniqueID { get; set; }
-        private const int CON_TIMEOUT = 2; // seconds
-        public IPPortPair _IPPortPair { get; set; }
-        public IPAddress IP { get; set; }
-        public int Port { get; set; }
-        public bool Handshaked { get; set; }
-        public int PerformancePoint { get; set; }
-        public TcpClient Client { get; set; }
-        private Torrent _Torrent { get; set; }
-        private TorrentManager _TorrentInfo { get; set; }
-        public BitArray Bitfield { get; set; }
-        private int PieceLen { get; set; }
-        private TorrentFileWriter FileWriter { get; set; }
-        public bool Unchoked { get; set; }
-        public bool? PieceResponseReceived { get; set; }
 
         public enum MessageType : int
         {
@@ -47,250 +37,117 @@ namespace torrent_library.Model
             Port = 9,
         }
 
-        public Peer(IPPortPair pair, Torrent torrent, TorrentManager torrentInfo)
+        private const int BUFFER_SIZE = 256;
+
+        public event EventHandler StateChanged;
+        public event EventHandler Disconnected;
+        public event EventHandler<RequestedBlock> BlockReceived;
+
+        private TorrentManager Manager;
+
+        public string ID { get; set; }
+        public string IP { get; set; }
+        public int Port { get; set; }
+        public bool IsHandshakeReceived { get; private set; }
+
+        private TcpClient _TcpClient { get; set; }
+        private NetworkStream _NetworkStream { get; set; }
+        public bool IsDisconnected { get; private set; }
+        public bool IsInterestedSent { get; private set; }
+        public bool IsChokeReceived { get; private set; }
+        public DateTime LastKeepAlive { get; private set; }
+
+        public bool[] Bitfield;
+        private List<byte> data = new List<byte>();
+        private byte[] streamBuffer = new byte[BUFFER_SIZE];
+        public DateTime LastActive;
+
+        public bool ConnectionRequestSent;
+        public ConcurrentDictionary<string, RequestedBlock> DownloadQueue = new ConcurrentDictionary<string, RequestedBlock>();
+
+        public bool[][] IsBlockRequested { get; set; }
+        public bool IsPieceRequested = false;
+
+        public Peer(IPPortPair pair)
         {
-            _IPPortPair = pair;
-            IP = pair.IP;
+            IP = pair.IP.ToString();
             Port = pair.Port;
-            Handshaked = false;
-            _Torrent = torrent;
-            _TorrentInfo = torrentInfo;
-            UniqueID = Guid.NewGuid();
-            FileWriter = new TorrentFileWriter();
-            PerformancePoint = 1;
-            Unchoked = false;
-            PieceResponseReceived = null;
-        }
-
-
-        public static bool operator ==(Peer obj1, Peer obj2)
-        {
-            return obj1.UniqueID == obj2.UniqueID;
-        }
-
-        public static bool operator !=(Peer obj1, Peer obj2)
-        {
-            return obj1.UniqueID != obj2.UniqueID;
-        }
-
-        public bool SendInterested()
-        {
-            try
+            IsDisconnected = true;
+            Manager = TorrentManager.GetInstance();
+            Bitfield = new bool[Manager.Torrent.NumberOfPieces];
+            IsBlockRequested = new bool[Manager.Torrent.NumberOfPieces][];
+            for (int i = 0; i < IsBlockRequested.Length; i++)
             {
-                if (!Handshaked)
-                    throw new Exception("Peer not handshaked.");
-
-                byte[] interestedMsg = new byte[5] { 0, 0, 0, 1, 2 };
-                byte[] buffer = new byte[1024];
-
-                var stream = Client.GetStream();
-                stream.Write(interestedMsg, 0, interestedMsg.Length);
-                stream.Read(buffer, 0, buffer.Length);
-
-                if (IsUnchoking(buffer))
-                {
-                    //_TorrentInfo.NotConnectedPeers.GetConsumingEnumerable().ToList().Remove(this);
-                    //_TorrentInfo.ConnectedPeers.Add(this);
-                    Unchoked = true;
-                    return true;
-                }
-                else
-                {
-                    //_TorrentInfo.ConnectedPeers.GetConsumingEnumerable().ToList().Remove(this);
-                    //_TorrentInfo.NotConnectedPeers.Add(this);
-                    Disconnect();
-                    Unchoked = false;
-                    return false;
-                }
-
-
+                IsBlockRequested[i] = new bool[TorrentPieceUtil.GetBlockCount(i, Manager.Torrent)];
             }
-            catch (Exception e)
+
+        }
+
+        public void Connect()
+        {
+            if (_TcpClient == null)
             {
-                return false;
-            }
-        }
+                _TcpClient = new TcpClient();
 
-        private void Disconnect()
-        {
-            Handshaked = false;
-            Unchoked = false;
-            Client = new TcpClient();
-        }
-
-        private bool IsUnchoking(byte[] response)
-        {
-            return response[0] == 0 && response[1] == 0 && response[2] == 0 && response[3] == 1 && response[4] == 1;
-        }
-
-        private bool IsChoking(byte[] response)
-        {
-            return response[0] == 0 && response[1] == 0 && response[2] == 0 && response[3] == 1 && response[4] == 0;
-        }
-
-        private bool IsPieceResponse(byte[] response)
-        {
-            return response[4] == (int)MessageType.Piece;
-        }
-
-
-
-        public bool SendRequest()
-        {
-            try
-            {
-                PieceResponseReceived = false;
-                var currentPiece = _TorrentInfo.CurrentPiece;
-
-                if (Bitfield[currentPiece])
+                try
                 {
-                    int bufferLength = 16384;
-                    var request = EncodeRequest(currentPiece, _TorrentInfo.CurrentOffset, bufferLength);
-                    byte[] buffer = new byte[bufferLength];
-                    var stream = Client.GetStream();
-                    stream.Write(request, 0, request.Length);
-                    stream.Read(buffer, 0, buffer.Length);
-
-                    if (IsPieceResponse(buffer))
+                    ConnectionRequestSent = true;
+                    _TcpClient.ConnectAsync(IP, Port).ContinueWith(x =>
                     {
-                        buffer = buffer.SubArray(5, bufferLength - 5);
-                        PieceResponseReceived = true;
-                    }
-                    else
-                    {
-                        Disconnect(); return false;
-                    }
-                        
-
-                    bufferLength = buffer.Length;
-                    var newOffset = _TorrentInfo.CurrentOffset + buffer.Length;
-                    int actualDataLength = bufferLength;
-
-
-                    if (newOffset >= _Torrent.PieceSize)
-                    {
-                        actualDataLength = ((int)_Torrent.PieceSize - _TorrentInfo.CurrentOffset);
-                        _TorrentInfo.CurrentOffset = 0;
-                        _TorrentInfo.CurrentPiece++;
-                        if (_TorrentInfo.CurrentPiece == _Torrent.NumberOfPieces)
+                        try
                         {
-                            _TorrentInfo.DownloadCompleted = true;
-                            return false;
+                            IsDisconnected = false;
+                            ConsoleUtil.Write("Connected => {0}:{1}", IP, Port);
+
+                            _NetworkStream = _TcpClient.GetStream();
+                            _NetworkStream.BeginRead(streamBuffer, 0, BUFFER_SIZE, new AsyncCallback(HandleRead), null);
+                            SendHandshake();
                         }
-                    }
-                    else
-                    {
-                        _TorrentInfo.CurrentOffset = newOffset;
-                    }
-
-                    buffer = buffer.SubArray(0, actualDataLength);
-
-                    try
-                    {
-                        FileWriter.WriteData(_Torrent.Files[0].FileName, buffer);
-                        ConsoleUtil.Write("Downloaded {0} bytes of data", buffer.Length);
-                    }
-                    catch (Exception e)
-                    {
-                        var x = 5;
-                    }
-                    return true;
+                        catch (Exception e)
+                        {
+                            Disconnect();
+                            return;
+                        }
+                    });
                 }
-                else
-                    return false;
-            }
-            catch (Exception e)
-            {
-                return false;
-            }
-
-        }
-
-        private bool ConnectToPeer()
-        {
-            Client = new TcpClient();
-            try
-            {
-                var result = Client.BeginConnect(IP, Port, null, null);
-                var success = result.AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(CON_TIMEOUT));
-                if (success)
+                catch (Exception e)
                 {
-                    return true;
+                    Disconnect();
+                    return;
                 }
-                else
-                    throw new Exception("Peer connection timed out.");
-            }
-            catch (Exception e)
-            {
-                return false;
+
             }
         }
 
-        public bool Connect()
+        public void SendRequest(RequestedBlock block)
         {
 
-            try
-            {
-                return ConnectToPeer();
-            }
-            catch (Exception)
-            {
-                return false;
-            }
+            ConsoleUtil.Write(IP + ":" + Port + "-> request " + block.ToString());
+            IsBlockRequested[block.Piece][block.Block] = true;
+            IsPieceRequested = true;
+            SendBytes(EncodeRequest(block.Piece, block.Block * TorrentPieceUtil.CHUNK_SIZE, TorrentPieceUtil.GetBlockSize(block.Piece, block.Block, Manager.Torrent)));
+
         }
 
-        public void HandShake(PeerHandshake handshakeRequest)
+        public void SendCancel(int index, long begin, int length)
         {
-            try
-            {
-                bool connected = ConnectToPeer();
-                if (connected)
-                {
-                    byte[] buffer = new byte[68];
-                    var handshakeRequestByteArray = handshakeRequest.GetAsByteArray();
-                    NetworkStream stream = Client.GetStream();
-                    stream.Write(handshakeRequestByteArray, 0, handshakeRequestByteArray.Length);
-                    stream.Read(buffer, 0, buffer.Length);
-
-                    var handshakeResponse = PeerHandshake.ConvertFromResponse(buffer);
-                    if (handshakeResponse.BittorrentProtocol == PeerHandshake.PSTR && handshakeResponse.InfoHash.ToLowerInvariant() == handshakeRequest.InfoHash.ToLowerInvariant())
-                    {
-                        Handshaked = true;
-                    }
-                    else
-                    {
-                        throw new Exception("Handshake response incorrect");
-                    }
-
-                    buffer = new byte[1024];
-                    stream.Read(buffer, 0, buffer.Length);
-                    if (buffer[4] == (int)MessageType.Bitfield)
-                    {
-                        var length = EndianBitConverter.Big.ToInt32(buffer.SubArray(0, 4), 0) - 1;
-                        SetBitField(buffer.SubArray(5, length));
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-            }
+            IsPieceRequested = false;
+            SendBytes(EncodeCancel(index, begin, length));
         }
 
-        private void SetBitField(byte[] array)
+        private byte[] EncodeCancel(int index, long begin, int length)
         {
-            Bitfield = new BitArray(_Torrent.NumberOfPieces);
-            //int offset = 0;
-            for (var i = 0; i < array.Length; i++)
-            {
-                var sub = new BitArray(array.SubArray(i, 1));
-                for (var j = 0; j < sub.Length; j++)
-                {
-                    Bitfield[(i * 8) + j] = sub[j];
-                }
-            }
+            byte[] message = new byte[17];
+            Buffer.BlockCopy(EndianBitConverter.Big.GetBytes(13), 0, message, 0, 4);
+            message[4] = (byte)MessageType.Cancel;
+            Buffer.BlockCopy(EndianBitConverter.Big.GetBytes(index), 0, message, 5, 4);
+            Buffer.BlockCopy(EndianBitConverter.Big.GetBytes(begin), 0, message, 9, 4);
+            Buffer.BlockCopy(EndianBitConverter.Big.GetBytes(length), 0, message, 13, 4);
+
+            return message;
         }
 
-        public static byte[] EncodeRequest(int index, int begin, int length)
+        private byte[] EncodeRequest(int index, int begin, int length)
         {
             byte[] message = new byte[17];
             Buffer.BlockCopy(EndianBitConverter.Big.GetBytes(13), 0, message, 0, 4);
@@ -302,12 +159,81 @@ namespace torrent_library.Model
             return message;
         }
 
+        private void HandleRead(IAsyncResult ar)
+        {
+            int bytes = 0;
+            try
+            {
+                bytes = _NetworkStream.EndRead(ar);
+            }
+            catch (Exception e)
+            {
+                Disconnect();
+                return;
+            }
+
+            data.AddRange(streamBuffer.Take(bytes));
+
+            int messageLength = GetMessageLength(data);
+            while (data.Count >= messageLength)
+            {
+                HandleMessage(data.Take(messageLength).ToArray());
+                data = data.Skip(messageLength).ToList();
+
+                messageLength = GetMessageLength(data);
+            }
+
+            try
+            {
+                _NetworkStream.BeginRead(streamBuffer, 0, BUFFER_SIZE, new AsyncCallback(HandleRead), null);
+            }
+            catch (Exception e)
+            {
+                Disconnect();
+            }
+        }
+
+        public void SendInterested()
+        {
+            if (IsInterestedSent)
+                return;
+
+            SendBytes(EncodeInterested());
+            IsInterestedSent = true;
+        }
+
+        public static byte[] EncodeInterested()
+        {
+            return EncodeState(MessageType.Interested);
+        }
+
         public static byte[] EncodeState(MessageType type)
         {
             byte[] message = new byte[5];
             Buffer.BlockCopy(EndianBitConverter.Big.GetBytes(1), 0, message, 0, 4);
             message[4] = (byte)type;
             return message;
+        }
+
+        private MessageType GetMessageType(byte[] bytes)
+        {
+            if (!IsHandshakeReceived)
+                return MessageType.Handshake;
+
+            if (bytes.Length == 4 && EndianBitConverter.Big.ToInt32(bytes, 0) == 0)
+                return MessageType.KeepAlive;
+
+            if (bytes.Length > 4 && Enum.IsDefined(typeof(MessageType), (int)bytes[4]))
+                return (MessageType)bytes[4];
+
+            return MessageType.Unknown;
+        }
+
+        private void HandleBitfield(bool[] isPieceDownloaded)
+        {
+            for (int i = 0; i < Manager.Torrent.NumberOfPieces; i++)
+                Bitfield[i] = Bitfield[i] || isPieceDownloaded[i];
+
         }
 
         public static bool DecodeBitfield(byte[] bytes, int pieces, out bool[] isPieceDownloaded)
@@ -318,7 +244,6 @@ namespace torrent_library.Model
 
             if (bytes.Length != expectedLength + 4 || EndianBitConverter.Big.ToInt32(bytes, 0) != expectedLength)
             {
-                //ConsoleUtil.WriteError("invalid bitfield, first byte must equal " + expectedLength);
                 return false;
             }
 
@@ -330,5 +255,309 @@ namespace torrent_library.Model
             return true;
         }
 
+        private void HandleMessage(byte[] bytes)
+        {
+            LastActive = DateTime.UtcNow;
+
+            MessageType type = GetMessageType(bytes);
+
+            if (type == MessageType.Unknown)
+            {
+                return;
+            }
+            else if (type == MessageType.Handshake)
+            {
+                var response = PeerHandshake.ConvertFromResponse(bytes);
+                HandleHandshake(response);
+                return;
+            }
+            else if (type == MessageType.Bitfield)
+            {
+                bool[] isPieceDownloaded;
+                if (DecodeBitfield(bytes, Manager.Torrent.NumberOfPieces, out isPieceDownloaded))
+                {
+                    HandleBitfield(isPieceDownloaded);
+                }
+                return;
+            }
+            else if (type == MessageType.KeepAlive && DecodeKeepAlive(bytes))
+            {
+                HandleKeepAlive();
+                return;
+            }
+            else if (type == MessageType.Choke && DecodeChoke(bytes))
+            {
+                HandleChoke();
+                return;
+            }
+            else if (type == MessageType.Unchoke && DecodeUnchoke(bytes))
+            {
+                HandleUnchoke();
+                return;
+            }
+            else if (type == MessageType.Have)
+            {
+                int index;
+                if (DecodeHave(bytes, out index))
+                {
+                    HandleHave(index);
+                    return;
+                }
+            }
+            else if (type == MessageType.Piece)
+            {
+                int index;
+                int begin;
+                byte[] data;
+                if (DecodePiece(bytes, out index, out begin, out data))
+                {
+                    HandlePiece(index, begin, data);
+                    return;
+                }
+            }
+
+            //Disconnect();
+        }
+
+        private void HandlePiece(int index, int begin, byte[] data)
+        {
+            ConsoleUtil.Write(IP + ":" + Port + " <- piece " + index + ", " + begin / TorrentPieceUtil.CHUNK_SIZE + ", " + data.Length);
+            IsPieceRequested = false;
+
+
+            var reqBlock = new RequestedBlock(index, begin / TorrentPieceUtil.CHUNK_SIZE, TorrentPieceUtil.GetBlockSize(index, begin / TorrentPieceUtil.CHUNK_SIZE, Manager.Torrent));
+            reqBlock.Data = data;
+
+
+            RequestedBlock _reqBlock;
+            var result = DownloadQueue.TryRemove(reqBlock.ToString(), out _reqBlock);
+
+
+            if (BlockReceived != null)
+                BlockReceived(this, reqBlock);
+
+        }
+
+        private bool DecodePiece(byte[] bytes, out int index, out int begin, out byte[] data)
+        {
+            index = -1;
+            begin = -1;
+            data = new byte[0];
+
+            if (bytes.Length < 13)
+            {
+                ConsoleUtil.Write("invalid piece message");
+                return false;
+            }
+
+            int length = EndianBitConverter.Big.ToInt32(bytes, 0) - 9;
+            index = EndianBitConverter.Big.ToInt32(bytes, 5);
+            begin = EndianBitConverter.Big.ToInt32(bytes, 9);
+
+            data = new byte[length];
+            Buffer.BlockCopy(bytes, 13, data, 0, length);
+
+            return true;
+        }
+
+        private void HandleHave(int index)
+        {
+            Bitfield[index] = true;
+            ConsoleUtil.Write(IP + ":" + Port + "<- have " + index);
+
+            var handler = StateChanged;
+            if (handler != null)
+                handler(this, new EventArgs());
+        }
+
+        private bool DecodeHave(byte[] bytes, out int index)
+        {
+            index = -1;
+
+            if (bytes.Length != 9 || EndianBitConverter.Big.ToInt32(bytes, 0) != 5)
+            {
+                ConsoleUtil.Write("invalid have, first byte must equal 0x2");
+                return false;
+            }
+
+            index = EndianBitConverter.Big.ToInt32(bytes, 5);
+
+            return true;
+        }
+
+        private void HandleUnchoke()
+        {
+            ConsoleUtil.Write("{0}:{1} unchoke", IP, Port);
+            IsChokeReceived = false;
+
+            var handler = StateChanged;
+            if (handler != null)
+                handler(this, new EventArgs());
+        }
+
+        private bool DecodeUnchoke(byte[] bytes)
+        {
+            return DecodeState(bytes, MessageType.Unchoke);
+        }
+
+        private void HandleChoke()
+        {
+            IsChokeReceived = true;
+
+            var handler = StateChanged;
+            if (handler != null)
+                handler(this, new EventArgs());
+        }
+
+        private bool DecodeChoke(byte[] bytes)
+        {
+            return DecodeState(bytes, MessageType.Choke);
+        }
+
+        private bool DecodeState(byte[] bytes, MessageType type)
+        {
+            if (bytes.Length != 5 || EndianBitConverter.Big.ToInt32(bytes, 0) != 1 || bytes[4] != (byte)type)
+            {
+                ConsoleUtil.Write("invalid " + Enum.GetName(typeof(MessageType), type));
+                return false;
+            }
+            return true;
+        }
+
+        private void HandleKeepAlive()
+        {
+            ConsoleUtil.Write("Got keep alive {0}:{1}", IP, Port);
+        }
+
+        public void SendKeepAlive()
+        {
+            if (LastKeepAlive > DateTime.UtcNow.AddSeconds(-30))
+                return;
+
+            ConsoleUtil.Write(IP + ":" + Port + "-> keep alive");
+            SendBytes(EncodeKeepAlive());
+            LastKeepAlive = DateTime.UtcNow;
+        }
+
+        private byte[] EncodeKeepAlive()
+        {
+            return EndianBitConverter.Big.GetBytes(0);
+        }
+
+        private bool DecodeKeepAlive(byte[] bytes)
+        {
+            if (bytes.Length != 4 || EndianBitConverter.Big.ToInt32(bytes, 0) != 0)
+            {
+                ConsoleUtil.Write("invalid keep alive");
+                return false;
+            }
+            return true;
+        }
+
+        private int GetMessageLength(List<byte> data)
+        {
+            if (!IsHandshakeReceived)
+                return 68;
+
+            if (data.Count < 4)
+                return int.MaxValue;
+
+            return EndianBitConverter.Big.ToInt32(data.ToArray(), 0) + 4;
+        }
+
+
+        public void Disconnect()
+        {
+            if (!IsDisconnected)
+            {
+                IsDisconnected = true;
+                ConsoleUtil.Write("Disconnected => {0}:{1}", IP, Port);
+            }
+
+            if (_TcpClient != null)
+                _TcpClient.Close();
+
+            ConnectionRequestSent = false;
+            IsInterestedSent = false;
+            IsHandshakeReceived = false;
+            IsPieceRequested = false;
+
+            if (Disconnected != null)
+                Disconnected(this, new EventArgs());
+        }
+
+        private void SendHandshake()
+        {
+            var hsRequest = new PeerHandshake(Manager.PeerID, Manager.Torrent.OriginalInfoHash).GetAsByteArray();
+            SendBytes(hsRequest);
+
+        }
+
+        private void SendBytes(byte[] bytes)
+        {
+            try
+            {
+                _NetworkStream.Write(bytes, 0, bytes.Length);
+            }
+            catch (Exception e)
+            {
+                Disconnect();
+            }
+        }
+
+        private void HandleHandshake(PeerHandshake hs)
+        {
+            if (Manager.Torrent.OriginalInfoHash.ToUpperInvariant() != hs.InfoHash.ToUpperInvariant())
+            {
+                Disconnect();
+                return;
+            }
+
+            ID = hs.PeerIDAsString;
+
+            IsHandshakeReceived = true;
+            SendBitfield();
+        }
+
+        private void SendBitfield()
+        {
+            var buffer = new byte[256];
+            //SendBytes(EncodeBitfield(Manager.Bitfield));
+        }
+
+        private static IEnumerable<bool> GetBits(byte b)
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                yield return (b & 0x80) != 0;
+                b *= 2;
+            }
+        }
+
+        private static byte[] EncodeBitfield(bool[] isPieceDownloaded)
+        {
+            int numPieces = isPieceDownloaded.Length;
+            int numBytes = Convert.ToInt32(Math.Ceiling(numPieces / 8.0));
+            int numBits = numBytes * 8;
+
+            int length = numBytes + 1;
+
+            byte[] message = new byte[length + 4];
+            Buffer.BlockCopy(EndianBitConverter.Big.GetBytes(length), 0, message, 0, 4);
+            message[4] = (byte)MessageType.Bitfield;
+
+            bool[] downloaded = new bool[numBits];
+            for (int i = 0; i < numPieces; i++)
+                downloaded[i] = isPieceDownloaded[i];
+
+            BitArray bitfield = new BitArray(downloaded);
+            BitArray reversed = new BitArray(numBits);
+            for (int i = 0; i < numBits; i++)
+                reversed[i] = bitfield[numBits - i - 1];
+
+            reversed.CopyTo(message, 5);
+
+            return message;
+        }
     }
 }

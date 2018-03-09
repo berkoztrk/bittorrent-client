@@ -35,9 +35,9 @@ namespace bittorrent_client
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            //var torrentObject = new TorrentObject(TEST_MAGNET_URI);
-            //torrentObject.DownloadTorrent();
-            //var x = 5;
+            MainFrame.Navigate(new System.Uri("DownloadWindow.xaml",
+         UriKind.RelativeOrAbsolute));
+
         }
     }
 }
