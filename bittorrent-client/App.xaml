@@ -7,7 +7,11 @@
         <Style x:Key="Common" TargetType="{x:Type Page}">
             <Setter Property="Background" Value="#363845"/>
         </Style>
+
+
     </Application.Resources>
+
+
     
 
 

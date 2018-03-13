@@ -25,6 +25,7 @@ namespace torrent_library.Model
         public ConcurrentDictionary<int, byte[]> DownloadedPieces = new ConcurrentDictionary<int, byte[]>();
         public long DownloadedForSpeed { get; set; }
 
+        public List<long> DownloadSpeeds = new List<long>();
 
         public byte[] PeerID { get; set; }
         public Torrent Torrent { get; set; }
@@ -107,6 +108,7 @@ namespace torrent_library.Model
 
             if (!DownloadProgress[e.Piece][e.Block])
             {
+              
                 DownloadedForSpeed += e.Data.Length;
                 Downloaded += e.Data.Length;
 

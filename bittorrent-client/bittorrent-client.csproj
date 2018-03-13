@@ -71,9 +71,6 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Compile Include="AddMagnetPopup.xaml.cs">
-      <DependentUpon>AddMagnetPopup.xaml</DependentUpon>
-    </Compile>
     <Compile Include="Admin.xaml.cs">
       <DependentUpon>Admin.xaml</DependentUpon>
     </Compile>
@@ -86,10 +83,6 @@
     <Compile Include="BO\TorrentObject.cs" />
     <Compile Include="Util\MTObservableCollection.cs" />
     <Compile Include="Util\Util.cs" />
-    <Page Include="AddMagnetPopup.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Page Include="Admin.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

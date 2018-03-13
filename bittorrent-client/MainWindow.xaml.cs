@@ -23,6 +23,7 @@ namespace bittorrent_client
     public partial class MainWindow : Window
     {
         private SqTorrentContext Context;
+        private Settings settings = null;
 
         private Window DownloadWindow { get; set; }
 
@@ -59,6 +60,28 @@ namespace bittorrent_client
         private void BtnAddMagnetCancel_Click(object sender, RoutedEventArgs e)
         {
             AddMagnetPopup.IsOpen = false;
+        }
+
+        private void ShowSettingsPopup(object sender, RoutedEventArgs e)
+        {
+            settings = Settings.Load();
+
+            txtDownloadPath.Text = settings.DownloadPath;
+
+            SettingsPopup.IsOpen = true;
+        }
+
+        private void BtnCancelSettings_Click(object sender, RoutedEventArgs e)
+        {
+            SettingsPopup.IsOpen = false;
+        }
+
+        private void BtnSaveSettings_Click(object sender, RoutedEventArgs e)
+        {
+            settings.DownloadPath = txtDownloadPath.Text;
+            if (settings != null)
+                settings.Save();
+            SettingsPopup.IsOpen = false;
         }
     }
 }

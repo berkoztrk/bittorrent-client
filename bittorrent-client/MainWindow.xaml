@@ -12,12 +12,13 @@
         <Menu IsMainMenu="true">
             <MenuItem Header="File" >
                 <MenuItem Click="ShowAddMagnetPopup"  Header="Add new torrent from magnet link" />
+                <MenuItem Click="ShowSettingsPopup"  Header="Settings" />
             </MenuItem>
         </Menu>
         <Popup Name="AddMagnetPopup"
                Placement="Center"
                 Width="400"
-               Height="120"
+               Height="Auto"
                
               >
             <StackPanel  Background="#eee">
@@ -31,6 +32,27 @@
             </StackPanel>
 
 
+
+        </Popup>
+
+        <Popup Name="SettingsPopup"
+               Placement="Center"
+                Width="400"
+                Height="Auto"
+              >
+            <StackPanel  Background="#eee">
+                <Label Margin="8" FontSize="12" Content="Change application settings"></Label>
+                <StackPanel  Orientation="Horizontal">
+                    <Label Margin="8" FontSize="10" Content="Download Path"></Label>
+                    <TextBox HorizontalContentAlignment="Stretch" Padding="4" Name="txtDownloadPath" ></TextBox>
+                </StackPanel>
+
+                <StackPanel HorizontalAlignment="Right"  Orientation="Horizontal">
+                    <Button Click="BtnSaveSettings_Click" Padding="4" Margin="8" Name="SaveSettings">Save</Button>
+                    <Button Click="BtnCancelSettings_Click" Padding="4" Margin="8" Name="Cancel" Content="Cancel" />
+                </StackPanel>
+
+            </StackPanel>
 
         </Popup>
         <Frame Name="MainFrame">

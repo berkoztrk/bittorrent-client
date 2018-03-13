@@ -13,7 +13,7 @@ namespace bittorrent_client
     {
         public static class AppSettings
         {
-           public static string TorrentFilePath
+            public static string TorrentFilePath
             {
                 get { return Path.Combine(Environment.CurrentDirectory, GetAppSettingsValue("TorrentFilePath")); }
             }
@@ -33,6 +33,16 @@ namespace bittorrent_client
         {
             Action<T> addMethod = collection.Add;
             Application.Current.Dispatcher.BeginInvoke(addMethod, item);
+        }
+
+        internal static string GetDownloadSpeed(double dLSpeed)
+        {
+            if (dLSpeed > 1000000)
+            {
+                return Math.Ceiling(dLSpeed / 1000000) + "Mb/s";
+            }
+            else
+                return Math.Ceiling(dLSpeed / 1000) + "Kb/s";
         }
     }
 }

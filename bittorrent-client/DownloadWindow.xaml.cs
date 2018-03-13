@@ -32,15 +32,10 @@ namespace bittorrent_client
             DownloadsDataSource.CollectionChanged += DownloadsDataSource_CollectionChanged;
         }
 
-        private void Context_ProcessorsUpdated(object arg1, TorrentProcessor arg2)
+        private void Context_ProcessorsUpdated(object arg1, TorrentProcessor processor)
         {
             var ds = (ObservableCollection<TorrentItem>)DataGridDownloads.ItemsSource;
-
-            foreach (var processor in Context.Processors)
-            {
-                if (ds.Count(x => x.InfoHash == processor.Key) == 0)
-                    ds.AddOnUI(new TorrentItem(processor.Value.Manager.Torrent.DisplayName, "0", 0, processor.Key));
-            }
+            ds.AddOnUI(new TorrentItem(processor.Manager.Torrent.DisplayName, "0", 0, processor.Manager.Torrent.OriginalInfoHash));
         }
 
         private void DownloadsDataSource_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -63,8 +58,8 @@ namespace bittorrent_client
                         if (item != null)
                         {
                             item.Peers = string.Format("{0}/{1}", manager.Peers.Count(x => !x.Value.IsDisconnected), manager.Peers.Count);
-                            item.Progress = (manager.Downloaded * 100 / manager.Torrent.TotalSize);
-                            item.DownloadSpeed = Math.Ceiling((double)manager.DownloadedForSpeed) + "kb/s";
+                            item.Progress = Math.Ceiling((double)(manager.Downloaded * 100 / manager.Torrent.TotalSize));
+                            item.DownloadSpeed = Util.GetDownloadSpeed(processor.Downloader.DLSpeed);
                         }
 
                     }
@@ -82,7 +77,24 @@ namespace bittorrent_client
             DataGridDownloads.ItemsSource = DownloadsDataSource;
         }
 
+        private void DataGridDownloads_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            e.Row.Header = (e.Row.GetIndex() + 1).ToString();
+        }
 
+        public void MenuItemStart_Click(object sender, EventArgs e)
+        {
 
+        }
+
+        public void MenuItemStop_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        public void OpenInExplorer_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

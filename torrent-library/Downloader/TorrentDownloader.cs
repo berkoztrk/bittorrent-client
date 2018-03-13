@@ -20,8 +20,10 @@ namespace torrent_library.Downloader
     {
         private TorrentFileWriter FileWriter { get; set; }
         public TorrentManager Manager { get; set; }
-        public long DLSpeed { get; set; }
+        public double DLSpeed { get; set; }
         private System.Timers.Timer DLSpeedTimer { get; set; }
+        private long[] DownloadSpeeds = new long[4];
+        private int DLSpeedIndex { get; set; }
 
         public TorrentDownloader(TorrentManager torrentInfo)
         {
@@ -39,6 +41,9 @@ namespace torrent_library.Downloader
 
         private void DLSpeedTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
         {
+            DownloadSpeeds[DLSpeedIndex] = Manager.DownloadedForSpeed;
+            DLSpeedIndex = DLSpeedIndex == DownloadSpeeds.Length - 1 ? 0 : DLSpeedIndex + 1;
+            DLSpeed = DownloadSpeeds.Average();
             ConsoleUtil.WriteSuccess("{0} Kb/s", Manager.DownloadedForSpeed);
             Manager.DownloadedForSpeed = 0;
         }
@@ -78,7 +83,6 @@ namespace torrent_library.Downloader
                             }
                             catch (Exception e)
                             {
-                                var y = 5;
                             }
                         }
                     }
@@ -95,7 +99,7 @@ namespace torrent_library.Downloader
         {
             while (!Manager.DownloadCompleted)
             {
-        
+
                 var connectedPeers = Manager.Peers.Where(X => !X.Value.IsDisconnected).Select(x => x.Value).OrderByDescending(x => x.Rank);
                 var rarestPieces = RequestedBlock.GetOrderedPiecesByRarest(Manager);
                 foreach (var peer in connectedPeers)
@@ -116,12 +120,12 @@ namespace torrent_library.Downloader
                         }
                     }
 
-                    if(rarestPieces.Count > 0)
-                    {
-                        var item = rarestPieces[0];
-                        rarestPieces.RemoveAt(0);
-                        rarestPieces.Add(item);
-                    }
+                    //if(rarestPieces.Count > 0)
+                    //{
+                    //    var item = rarestPieces[0];
+                    //    rarestPieces.RemoveAt(0);
+                    //    rarestPieces.Add(item);
+                    //}
                 }
             }
 

@@ -86,6 +86,7 @@
     <Compile Include="Model\PeerHandshake.cs" />
     <Compile Include="Model\RequestedBlock.cs" />
     <Compile Include="Model\TorrentWithTrackerInfo.cs" />
+    <Compile Include="Settings.cs" />
     <Compile Include="TorrentProcessor.cs" />
     <Compile Include="Tracker\TrackerManager.cs" />
     <Compile Include="Util\EndianBitConverter.cs" />
