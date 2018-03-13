@@ -4,6 +4,8 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using BencodeNET.Torrents;
+using torrent_library.Model;
 
 namespace torrent_library.Util
 {
@@ -38,6 +40,38 @@ namespace torrent_library.Util
                 sb.Append(hex);
             }
             return sb.ToString();
+        }
+
+        private static string HexFromByteArray(byte[] bytes)
+        {
+            using (SHA1Managed sha1 = new SHA1Managed())
+            {
+                var hash = sha1.ComputeHash(bytes);
+                var sb = new StringBuilder(hash.Length * 2);
+
+                foreach (byte b in hash)
+                {
+                    // can be "x2" if you want lowercase
+                    sb.Append(b.ToString("X2"));
+                }
+
+                return sb.ToString();
+            }
+        }
+
+        public static bool ValidatePiece(RequestedBlock block, Torrent torrent)
+        {
+            var len = torrent.PiecesAsHexString.Length / torrent.NumberOfPieces;
+            var validHash = torrent.PiecesAsHexString.Substring(block.Piece * len, len);
+            var ps = TorrentPieceUtil.GetPieceSize(0, torrent);
+            var d = new byte[ps];
+            Buffer.BlockCopy(block.Data, 0, d, 0, block.Data.Length);
+            Buffer.BlockCopy(new byte[d.Length - block.Data.Length], 0, d, block.Data.Length, d.Length - block.Data.Length);
+            var e = HexFromByteArray(d);
+            if (validHash.ToUpperInvariant() == HexFromByteArray(block.Data).ToUpperInvariant())
+                return true;
+            else
+                return false;
         }
     }
 }

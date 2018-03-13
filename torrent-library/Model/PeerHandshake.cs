@@ -48,6 +48,9 @@ namespace torrent_library.Model
 
         public static PeerHandshake ConvertFromResponse(byte[] response)
         {
+            if (response.Length != 68)
+                return null;
+
             var handshake = new PeerHandshake();
             handshake.Length = response[0];
             handshake.BittorrentProtocol = BitConverterUtil.ToString(response.SubArray(1, 19));

@@ -12,20 +12,35 @@ namespace torrent_library.Util
     {
         private ReaderWriterLockSlim lock_ = new ReaderWriterLockSlim();
 
-        public void WriteData(string path, byte[] bytes, long offset)
+        public void WriteData(string path, byte[] bytes, long fileSize, long offset)
         {
-            lock_.TryEnterWriteLock(int.MaxValue);
+
             try
             {
-                using (FileStream fs = new FileStream(@"C:\torrents\" + path, FileMode.Append))
+                using (var fs = File.Open(@"C:\torrents\" + path, FileMode.Open))
                 {
+                    fs.SetLength(fileSize);
+                    fs.Position = offset;
                     fs.Write(bytes, 0, bytes.Length);
                 }
             }
-            finally
+            catch (FileNotFoundException e)
             {
-                lock_.ExitWriteLock();
+                using (var fs = File.Open(@"C:\torrents\" + path, FileMode.Create))
+                {
+                    fs.SetLength(fileSize);
+                    fs.MakeSparse();
+                    fs.SetSparseRange(0, fs.Length);
+                    fs.Position = offset;
+                    fs.Write(bytes, 0, bytes.Length);
+                }
+            }
+            catch (IOException e)
+            {
+                WriteData(path, bytes, fileSize, offset);
             }
         }
-    } 
+
+    }
 }
+

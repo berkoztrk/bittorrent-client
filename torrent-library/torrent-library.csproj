@@ -76,6 +76,8 @@
     <Compile Include="Model\AnnounceRequest.cs" />
     <Compile Include="Model\AnnounceResponse.cs" />
     <Compile Include="Model\DownloadInfo.cs" />
+    <Compile Include="Model\DownloadStrategy.cs" />
+    <Compile Include="Model\FileDownloadInfo.cs" />
     <Compile Include="Model\IPPortPair.cs" />
     <Compile Include="Model\MagnetURIDefinition.cs" />
     <Compile Include="Model\MagnetURI.cs" />
@@ -87,6 +89,7 @@
     <Compile Include="TorrentProcessor.cs" />
     <Compile Include="Tracker\TrackerManager.cs" />
     <Compile Include="Util\EndianBitConverter.cs" />
+    <Compile Include="Util\FileStreamUtil.cs" />
     <Compile Include="Util\PeerIDUtil.cs" />
     <Compile Include="Model\ScrapeRequest.cs" />
     <Compile Include="Model\ScrapeResponse.cs" />

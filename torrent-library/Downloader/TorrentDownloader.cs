@@ -20,14 +20,28 @@ namespace torrent_library.Downloader
     {
         private TorrentFileWriter FileWriter { get; set; }
         public TorrentManager Manager { get; set; }
+        public long DLSpeed { get; set; }
+        private System.Timers.Timer DLSpeedTimer { get; set; }
 
         public TorrentDownloader(TorrentManager torrentInfo)
         {
             Manager = torrentInfo;
             this.FileWriter = new TorrentFileWriter();
+            this.DLSpeed = 0;
+
+            DLSpeedTimer = new System.Timers.Timer();
+            DLSpeedTimer.Elapsed += DLSpeedTimer_Elapsed;
+            DLSpeedTimer.Interval = 1000;
+            DLSpeedTimer.Enabled = true;
         }
 
         public TorrentDownloader() { }
+
+        private void DLSpeedTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        {
+            ConsoleUtil.WriteSuccess("{0} Kb/s", Manager.DownloadedForSpeed);
+            Manager.DownloadedForSpeed = 0;
+        }
 
         public void StartDownload()
         {
@@ -49,9 +63,31 @@ namespace torrent_library.Downloader
                 var result = Manager.FileQueue.TryDequeue(out block);
                 if (result)
                 {
-                    FileWriter.WriteData("asdas.pdf", block.Data, TorrentPieceUtil.GetFileOffset(block, Manager.Torrent));
+                    var isPieceValid = SHA1Util.ValidatePiece(block, Manager.Torrent);
+
+                    if (isPieceValid)
+                    {
+                        var files = block.GetFilePieceBelongs(Manager);
+                        int offset = 0;
+                        foreach (var file in files)
+                        {
+                            try
+                            {
+                                FileWriter.WriteData(file.FileInfo.FileName, block.Data.SubArray(offset, (int)file.Length), file.FileInfo.FileSize, file.FileOffset);
+                                offset += (int)file.Length;
+                            }
+                            catch (Exception e)
+                            {
+                                var y = 5;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Manager.ResetPieceProgess(block.Piece);
+                    }
+
                 }
-                Thread.Sleep(50);
             }
         }
 
@@ -59,21 +95,40 @@ namespace torrent_library.Downloader
         {
             while (!Manager.DownloadCompleted)
             {
-                var connectedPeers = Manager.Peers.Where(X => !X.Value.IsDisconnected).Select(x => x.Value);
+        
+                var connectedPeers = Manager.Peers.Where(X => !X.Value.IsDisconnected).Select(x => x.Value).OrderByDescending(x => x.Rank);
+                var rarestPieces = RequestedBlock.GetOrderedPiecesByRarest(Manager);
                 foreach (var peer in connectedPeers)
                 {
                     peer.SendKeepAlive();
                     peer.SendInterested();
 
-                    if (peer.IsPieceRequested)
-                        continue;
-
-                    var requestBlock = RequestedBlock.GetBlock(peer, Manager);
-                    if (requestBlock != null)
+                    while (peer.RequestCount < 5)
                     {
-                        peer.SendRequest(requestBlock);
+                        var requestBlock = RequestedBlock.GetBlock(peer, Manager, DownloadStrategy.RarestFirst, rarestPieces);
+                        if (requestBlock != null && !peer.IsDisconnected)
+                        {
+                            peer.SendRequest(requestBlock);
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+
+                    if(rarestPieces.Count > 0)
+                    {
+                        var item = rarestPieces[0];
+                        rarestPieces.RemoveAt(0);
+                        rarestPieces.Add(item);
                     }
                 }
+            }
+
+            var _connectedPeers = Manager.Peers.Where(X => !X.Value.IsDisconnected).Select(x => x.Value).OrderByDescending(x => x.Rank);
+            foreach (var peer in _connectedPeers)
+            {
+                peer.SendNotInterested();
             }
         }
 
@@ -81,9 +136,17 @@ namespace torrent_library.Downloader
         {
             while (!Manager.DownloadCompleted)
             {
-                Manager.Peers.Select(x => x.Value)
-                            .Where(x => !x.ConnectionRequestSent && x.IsDisconnected).ToList()
-                            .ForEach(x => x.Connect());
+                foreach (var kv in Manager.Peers)
+                {
+                    var peer = kv.Value;
+
+                    if (peer.IsDisconnected)
+                        peer.Connect();
+                }
+
+                //Manager.Peers.Select(x => x.Value)
+                //            .Where(x => x.IsDisconnected).ToList()
+                //            .ForEach(x => x.Connect());
                 Thread.Sleep(500);
             }
         }

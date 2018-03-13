@@ -10,7 +10,8 @@ namespace bittorrent_client.Model
     public class TorrentItem : INotifyPropertyChanged
     {
         private string peers;
-
+        private double progress;
+        private string downloadSpeed;
 
         public string Name { get; set; }
         public string Peers
@@ -25,12 +26,37 @@ namespace bittorrent_client.Model
                 }
             }
         }
-        public int Progress { get; set; }
+        public string InfoHash { get; set; }
+        public double Progress
+        {
+            get { return progress; }
+            set
+            {
+                if (value != progress)
+                {
+                    progress = value;
+                    OnPropertyChanged("Progress");
+                }
 
+            }
+        }
+        public string DownloadSpeed
+        {
+            get { return downloadSpeed; }
+            set
+            {
+                if (value != downloadSpeed)
+                {
+                    downloadSpeed = value;
+                    OnPropertyChanged("DownloadSpeed");
+                }
+            }
+        }
         public TorrentItem() { }
 
-        public TorrentItem(string name, string peers, int progress)
+        public TorrentItem(string name, string peers, double progress, string infoHash)
         {
+            this.InfoHash = infoHash;
             this.Name = name;
             this.Peers = peers;
             this.Progress = progress;

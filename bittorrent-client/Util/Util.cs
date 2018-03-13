@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Configuration;
 using System.IO;
+using System.Windows;
 
 namespace bittorrent_client
 {
@@ -26,6 +27,12 @@ namespace bittorrent_client
         public static string GetAppSettingsValue(string key)
         {
             return ConfigurationManager.AppSettings[key] as string;
+        }
+
+        public static void AddOnUI<T>(this ICollection<T> collection, T item)
+        {
+            Action<T> addMethod = collection.Add;
+            Application.Current.Dispatcher.BeginInvoke(addMethod, item);
         }
     }
 }

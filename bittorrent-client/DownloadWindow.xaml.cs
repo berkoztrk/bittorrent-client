@@ -7,50 +7,79 @@ using torrent_library.Model;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using bittorrent_client.Model;
+using System;
+using bittorrent_client.BO;
+using System.Windows;
+using System.ComponentModel;
 
 namespace bittorrent_client
 {
 
     public partial class DownloadWindow : Page
     {
-
+        public SqTorrentContext Context;
         public ObservableCollection<TorrentItem> DownloadsDataSource = new ObservableCollection<TorrentItem>();
+        private readonly BackgroundWorker worker = new BackgroundWorker() { WorkerSupportsCancellation = true };
 
-        private const string TEST_MAGNET_URI = "magnet:?xt=urn:btih:555c6502327eddbf41f268690d4f97cb8d756372&dn=Penthouse+Magazine+July+and+August+2017++The+Erotic+Fetish+Issue&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fzer0day.ch%3A1337&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969";
         public DownloadWindow()
         {
             InitializeComponent();
+            worker.DoWork += Worker_DoWork;
+            Context = SqTorrentContext.GetInstance();
+            Context.ProcessorsUpdated += Context_ProcessorsUpdated;
             Init();
-
-            Loaded += DownloadWindow_Loaded;
+            worker.RunWorkerAsync();
+            DownloadsDataSource.CollectionChanged += DownloadsDataSource_CollectionChanged;
         }
 
-        private void DownloadWindow_Loaded(object sender, System.Windows.RoutedEventArgs e)
+        private void Context_ProcessorsUpdated(object arg1, TorrentProcessor arg2)
         {
+            var ds = (ObservableCollection<TorrentItem>)DataGridDownloads.ItemsSource;
 
-            var x = 5;
+            foreach (var processor in Context.Processors)
+            {
+                if (ds.Count(x => x.InfoHash == processor.Key) == 0)
+                    ds.AddOnUI(new TorrentItem(processor.Value.Manager.Torrent.DisplayName, "0", 0, processor.Key));
+            }
+        }
+
+        private void DownloadsDataSource_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            DataGridDownloads.Items.Refresh();
+        }
+
+        private void Worker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            while (!worker.CancellationPending)
+            {
+                try
+                {
+                    foreach (var kv in Context.Processors)
+                    {
+                        var processor = kv.Value;
+                        var manager = processor.Manager;
+
+                        var item = ((ObservableCollection<TorrentItem>)DataGridDownloads.ItemsSource).Where(x => x.InfoHash == manager.Torrent.OriginalInfoHash).FirstOrDefault();
+                        if (item != null)
+                        {
+                            item.Peers = string.Format("{0}/{1}", manager.Peers.Count(x => !x.Value.IsDisconnected), manager.Peers.Count);
+                            item.Progress = (manager.Downloaded * 100 / manager.Torrent.TotalSize);
+                            item.DownloadSpeed = Math.Ceiling((double)manager.DownloadedForSpeed) + "kb/s";
+                        }
+
+                    }
+                }
+                catch (Exception ex)
+                {
+
+                }
+
+            }
         }
 
         public void Init()
         {
-            var torrentProcessor = new TorrentProcessor();
-            torrentProcessor.StartProcess(TEST_MAGNET_URI);
-
-            var item = new TorrentItem(torrentProcessor.Manager.Torrent.DisplayName, "0/0", 0);
-
-            DownloadsDataSource.Add(item);
             DataGridDownloads.ItemsSource = DownloadsDataSource;
-
-            new Thread(new ThreadStart(() =>
-            {
-                while (true)
-                {
-
-                    DownloadsDataSource[0].Peers = torrentProcessor.Manager.Peers.Count(x => x.Value.IsHandshakeReceived) + "/" + torrentProcessor.Manager.Peers.Count;
-                    //Thread.Sleep(1000);
-                }
-            })).Start();
-
         }
 
 

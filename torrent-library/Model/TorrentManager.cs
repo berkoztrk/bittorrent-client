@@ -21,8 +21,9 @@ namespace torrent_library.Model
         private static TorrentManager Instance;
 
         public ConcurrentDictionary<string, Peer> Peers = new ConcurrentDictionary<string, Peer>();
-        public ConcurrentDictionary<int, Peer> DownloadingPieces = new ConcurrentDictionary<int, Peer>();
         public ConcurrentQueue<RequestedBlock> FileQueue = new ConcurrentQueue<RequestedBlock>();
+        public ConcurrentDictionary<int, byte[]> DownloadedPieces = new ConcurrentDictionary<int, byte[]>();
+        public long DownloadedForSpeed { get; set; }
 
 
         public byte[] PeerID { get; set; }
@@ -49,13 +50,13 @@ namespace torrent_library.Model
             this.Downloaded = 0;
             this.Bitfield = new bool[Torrent.NumberOfPieces];
             this.DownloadProgress = new bool[Torrent.NumberOfPieces][];
+            this.DownloadedForSpeed = 0;
             for (int i = 0; i < Torrent.NumberOfPieces; i++)
             {
                 DownloadProgress[i] = new bool[TorrentPieceUtil.GetBlockCount(i, Torrent)];
             }
-
-
         }
+
         public TorrentManager(DownloadInfo di, TorrentWithTrackerInfo twtInfo)
         {
             this.PeerID = di.PeerID;
@@ -79,7 +80,6 @@ namespace torrent_library.Model
 
         public void AddPeers(List<Peer> peers)
         {
-            var updated = false;
             foreach (var peer in peers)
             {
                 var result = Peers.TryAdd(peer.IP, peer);
@@ -91,6 +91,15 @@ namespace torrent_library.Model
             }
         }
 
+        public void ResetPieceProgess(int piece)
+        {
+            for (int i = 0; i < DownloadProgress[piece].Length; i++)
+            {
+                DownloadProgress[piece][i] = false;
+            }
+            DownloadedPieces[piece] = new byte[TorrentPieceUtil.GetPieceSize(piece, Torrent)];
+        }
+
         private void Peer_BlockReceived(object sender, RequestedBlock e)
         {
             var peer = sender as Peer;
@@ -98,8 +107,28 @@ namespace torrent_library.Model
 
             if (!DownloadProgress[e.Piece][e.Block])
             {
+                DownloadedForSpeed += e.Data.Length;
+                Downloaded += e.Data.Length;
+
+                if (!DownloadedPieces.ContainsKey(e.Piece))
+                    DownloadedPieces[e.Piece] = new byte[TorrentPieceUtil.GetPieceSize(e.Piece, Torrent)];
+
+                var blockSize = TorrentPieceUtil.GetBlockSize(e.Piece, 0, Torrent);
+                Buffer.BlockCopy(e.Data, 0, DownloadedPieces[e.Piece], e.Block * blockSize, e.Data.Length);
+
                 DownloadProgress[e.Piece][e.Block] = true;
-                FileQueue.Enqueue(e);
+                if (PieceProgress[e.Piece])
+                {
+                    byte[] val;
+                    var result = DownloadedPieces.TryRemove(e.Piece, out val);
+                    if (result)
+                    {
+                        var block = new RequestedBlock(e.Piece, -1, val.Length);
+                        block.Data = val;
+                        FileQueue.Enqueue(block);
+                    }
+
+                }
                 foreach (var p in Peers)
                 {
                     if (p.Value.IsBlockRequested[e.Piece][e.Block])
@@ -109,17 +138,8 @@ namespace torrent_library.Model
 
         }
 
-
         private void Peer_Disconnected(object sender, EventArgs e)
         {
-            var peer = sender as Peer;
-            var downloadingPeer = DownloadingPieces.Where(x => x.Value.IP == peer.IP);
-
-            if (downloadingPeer.Count() > 0)
-            {
-                Peer _peer;
-                DownloadingPieces.TryRemove(downloadingPeer.FirstOrDefault().Key, out _peer);
-            }
 
         }
 
@@ -144,7 +164,7 @@ namespace torrent_library.Model
             {
                 PeerID = this.PeerID,
                 Downloaded = this.Downloaded,
-                //DownloadProgress = this.DownloadProgress
+                DownloadProgress = this.DownloadProgress
             });
 
             File.WriteAllText(path, json);
@@ -154,7 +174,6 @@ namespace torrent_library.Model
         {
             var path = @"C:/torrents/" + infoHASH.ToUpperInvariant() + ".json";
             var json = File.ReadAllText(path);
-            //var obj = JsonConvert.DeserializeObject<DownloadInfo>(json.Replace("[[", "[").Replace("]]", "]"));
 
             var jObject = JObject.Parse(json);
             var jToken = jObject.GetValue("DownloadProgress");
@@ -167,12 +186,8 @@ namespace torrent_library.Model
             obj.PeerID = peerID as byte[];
 
             var manager = new TorrentManager(obj, twtInfo);
-            //PropTwoClass value = jToken.ToObject(typeof(PropTwoClass));
-
-            //var manager = new TorrentManager(obj, twtInfo);
 
             return manager;
-            //return manager;
         }
 
 

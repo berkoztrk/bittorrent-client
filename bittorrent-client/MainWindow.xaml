@@ -7,10 +7,39 @@
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
         Title="Squeek" Height="600" Width="800">
-    <Frame Name="MainFrame">
+
+    <StackPanel>
+        <Menu IsMainMenu="true">
+            <MenuItem Header="File" >
+                <MenuItem Click="ShowAddMagnetPopup"  Header="Add new torrent from magnet link" />
+            </MenuItem>
+        </Menu>
+        <Popup Name="AddMagnetPopup"
+               Placement="Center"
+                Width="400"
+               Height="120"
+               
+              >
+            <StackPanel  Background="#eee">
+                <Label Margin="8" FontSize="12" Content="Add new torrent from magnet link"></Label>
+                <TextBox Margin="8 0" Padding="4" Name="TextBoxMagnet" ></TextBox>
+                <StackPanel HorizontalAlignment="Right"  Orientation="Horizontal">
+                    <Button Click="BtnAddMangetOK_Click" Padding="4" Margin="8" Name="BtnAddMangetOK">OK</Button>
+                    <Button Click="BtnAddMagnetCancel_Click" Padding="4" Margin="8" Name="BtnAddMagnetCancel" Content="Cancel" />
+                </StackPanel>
+
+            </StackPanel>
 
 
-    </Frame>
+
+        </Popup>
+        <Frame Name="MainFrame">
+
+
+        </Frame>
+    </StackPanel>
+
+
     <!--<Window.Content>
         <local:DownloadWindow></local:DownloadWindow>
     </Window.Content>-->

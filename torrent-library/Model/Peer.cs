@@ -63,10 +63,23 @@ namespace torrent_library.Model
         public DateTime LastActive;
 
         public bool ConnectionRequestSent;
-        public ConcurrentDictionary<string, RequestedBlock> DownloadQueue = new ConcurrentDictionary<string, RequestedBlock>();
 
         public bool[][] IsBlockRequested { get; set; }
         public bool IsPieceRequested = false;
+        private int requestCount = 0;
+        public int RequestCount
+        {
+            get
+            {
+                return this.requestCount;
+            }
+        }
+        public int Rank = 0;
+
+        public override string ToString()
+        {
+            return IP + ":" + Port;
+        }
 
         public Peer(IPPortPair pair)
         {
@@ -80,7 +93,6 @@ namespace torrent_library.Model
             {
                 IsBlockRequested[i] = new bool[TorrentPieceUtil.GetBlockCount(i, Manager.Torrent)];
             }
-
         }
 
         public void Connect()
@@ -121,17 +133,38 @@ namespace torrent_library.Model
 
         public void SendRequest(RequestedBlock block)
         {
-
-            ConsoleUtil.Write(IP + ":" + Port + "-> request " + block.ToString());
+            Interlocked.Increment(ref this.requestCount);
+            ConsoleUtil.Write(IP + ":" + Port + "-> request  " + block.ToString() + " " + RequestCount + " " + this.requestCount);
             IsBlockRequested[block.Piece][block.Block] = true;
             IsPieceRequested = true;
             SendBytes(EncodeRequest(block.Piece, block.Block * TorrentPieceUtil.CHUNK_SIZE, TorrentPieceUtil.GetBlockSize(block.Piece, block.Block, Manager.Torrent)));
 
         }
 
+        public static byte[] EncodeNotInterested()
+        {
+            return EncodeState(MessageType.NotInterested);
+        }
+
+        internal void SendNotInterested()
+        {
+            if (!IsInterestedSent)
+                return;
+
+            ConsoleUtil.Write(this.ToString() + "-> not interested");
+            SendBytes(EncodeNotInterested());
+            IsInterestedSent = false;
+        }
+
         public void SendCancel(int index, long begin, int length)
         {
             IsPieceRequested = false;
+
+            var block = (int)begin / TorrentPieceUtil.CHUNK_SIZE;
+            if (this.requestCount > 0)
+                Interlocked.Decrement(ref this.requestCount);
+            //RequestCount = RequestCount > 0 ? RequestCount - 1 : RequestCount;
+
             SendBytes(EncodeCancel(index, begin, length));
         }
 
@@ -321,17 +354,18 @@ namespace torrent_library.Model
 
         private void HandlePiece(int index, int begin, byte[] data)
         {
-            ConsoleUtil.Write(IP + ":" + Port + " <- piece " + index + ", " + begin / TorrentPieceUtil.CHUNK_SIZE + ", " + data.Length);
+            var block = begin / TorrentPieceUtil.CHUNK_SIZE;
+
+            ConsoleUtil.Write(IP + ":" + Port + " <- piece " + index + ", " + block + ", " + data.Length);
             IsPieceRequested = false;
+            if (this.requestCount > 0)
+                Interlocked.Decrement(ref this.requestCount);
+            //RequestCount = RequestCount > 0 ? RequestCount - 1 : RequestCount;
 
-
-            var reqBlock = new RequestedBlock(index, begin / TorrentPieceUtil.CHUNK_SIZE, TorrentPieceUtil.GetBlockSize(index, begin / TorrentPieceUtil.CHUNK_SIZE, Manager.Torrent));
+            var reqBlock = new RequestedBlock(index, block, TorrentPieceUtil.GetBlockSize(0, 0, Manager.Torrent));
             reqBlock.Data = data;
 
-
-            RequestedBlock _reqBlock;
-            var result = DownloadQueue.TryRemove(reqBlock.ToString(), out _reqBlock);
-
+            Rank++;
 
             if (BlockReceived != null)
                 BlockReceived(this, reqBlock);
@@ -481,6 +515,12 @@ namespace torrent_library.Model
             IsInterestedSent = false;
             IsHandshakeReceived = false;
             IsPieceRequested = false;
+            //requestCount = 0;
+            Interlocked.Exchange(ref this.requestCount, 0);
+            for (int i = 0; i < IsBlockRequested.Length; i++)
+            {
+                IsBlockRequested[i] = new bool[TorrentPieceUtil.GetBlockCount(i, Manager.Torrent)];
+            }
 
             if (Disconnected != null)
                 Disconnected(this, new EventArgs());
@@ -507,7 +547,7 @@ namespace torrent_library.Model
 
         private void HandleHandshake(PeerHandshake hs)
         {
-            if (Manager.Torrent.OriginalInfoHash.ToUpperInvariant() != hs.InfoHash.ToUpperInvariant())
+            if (hs == null || Manager.Torrent.OriginalInfoHash.ToUpperInvariant() != hs.InfoHash.ToUpperInvariant())
             {
                 Disconnect();
                 return;

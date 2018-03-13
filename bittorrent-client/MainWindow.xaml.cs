@@ -13,7 +13,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
-
+using torrent_library;
 
 namespace bittorrent_client
 {
@@ -22,8 +22,10 @@ namespace bittorrent_client
     /// </summary>
     public partial class MainWindow : Window
     {
+        private SqTorrentContext Context;
 
-        private const string TEST_MAGNET_URI = "magnet:?xt=urn:btih:68e9c21729fadbd19b8933951fcc7ed2ab3e2b31&dn=Amelie+%282001%29+720p+BRrip_sujaidr&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fzer0day.ch%3A1337&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969";
+        private Window DownloadWindow { get; set; }
+
 
         public MainWindow()
         {
@@ -31,6 +33,7 @@ namespace bittorrent_client
 
             log4net.Config.XmlConfigurator.ConfigureAndWatch(new System.IO.FileInfo("log4.config"));
             Loaded += MainWindow_Loaded;
+            Context = SqTorrentContext.GetInstance();
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -38,6 +41,24 @@ namespace bittorrent_client
             MainFrame.Navigate(new System.Uri("DownloadWindow.xaml",
          UriKind.RelativeOrAbsolute));
 
+        }
+
+        private void ShowAddMagnetPopup(object sender, EventArgs e)
+        {
+            AddMagnetPopup.IsOpen = true;
+        }
+
+        private void BtnAddMangetOK_Click(object sender, RoutedEventArgs e)
+        {
+            TorrentProcessor processor = new TorrentProcessor();
+            processor.StartProcess(TextBoxMagnet.Text);
+            Context.AddProcessor(processor);
+            AddMagnetPopup.IsOpen = false;
+        }
+
+        private void BtnAddMagnetCancel_Click(object sender, RoutedEventArgs e)
+        {
+            AddMagnetPopup.IsOpen = false;
         }
     }
 }

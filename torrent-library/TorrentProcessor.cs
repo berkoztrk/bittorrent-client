@@ -28,7 +28,7 @@ namespace torrent_library
 
             Manager = torrentManager;
 
-            TrackerManager.ConnectToTrackers(torrent._Torrent, torrentManager);
+            TrackerManager.ConnectToTrackers(torrent, torrentManager);
 
 
             var torrentDownloader = new TorrentDownloader(torrentManager);
