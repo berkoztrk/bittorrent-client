@@ -15,15 +15,24 @@ using torrent_library.Util;
 
 namespace torrent_library.Model
 {
+
+    public enum TorrentStatus
+    {
+        ConnectingToTracker,
+        Downloading,
+        ConnectingToPeers,
+        Finished
+    }
+
+
     public class TorrentManager
     {
-
-        private static TorrentManager Instance;
 
         public ConcurrentDictionary<string, Peer> Peers = new ConcurrentDictionary<string, Peer>();
         public ConcurrentQueue<RequestedBlock> FileQueue = new ConcurrentQueue<RequestedBlock>();
         public ConcurrentDictionary<int, byte[]> DownloadedPieces = new ConcurrentDictionary<int, byte[]>();
         public long DownloadedForSpeed { get; set; }
+        private DateTime LastProgressSaved = DateTime.Now;
 
         public List<long> DownloadSpeeds = new List<long>();
 
@@ -32,7 +41,19 @@ namespace torrent_library.Model
 
         public bool[] Bitfield { get; set; }
         public long Downloaded { get; set; }
-        public bool DownloadCompleted { get { return PieceProgress.Where(x => !x).Count() == 0; } }
+        public bool DownloadCompleted
+        {
+            get
+            {
+                if (PieceProgress.Where(x => !x).Count() == 0)
+                {
+                    _TorrentStatus = TorrentStatus.Finished;
+                    return true;
+                }
+                else
+                    return false;
+            }
+        }
         public bool[][] DownloadProgress;
         public bool[] PieceProgress
         {
@@ -41,7 +62,28 @@ namespace torrent_library.Model
                 return DownloadProgress.Select(x => x.All(y => y)).ToArray();
             }
         }
+
+        public bool Paused { get; internal set; }
         public bool Running = true;
+        public TorrentStatus _TorrentStatus = TorrentStatus.ConnectingToTracker;
+
+
+        public string GetStatusText()
+        {
+            switch (_TorrentStatus)
+            {
+                case TorrentStatus.ConnectingToTracker:
+                    return "Connecting to trackers";
+                case TorrentStatus.ConnectingToPeers:
+                    return "Connecting to peers";
+                case TorrentStatus.Downloading:
+                    return "Downloading";
+                case TorrentStatus.Finished:
+                    return "Finished";
+                default:
+                    return "";
+            }
+        }
 
 
         private TorrentManager(byte[] peerID, TorrentWithTrackerInfo torrent)
@@ -69,15 +111,7 @@ namespace torrent_library.Model
         private TorrentManager()
         {
         }
-        public static TorrentManager GetInstance()
-        {
-            if (Instance == null)
-            {
-                throw new Exception("Instance is null");
-            }
 
-            return Instance;
-        }
 
         public void AddPeers(List<Peer> peers)
         {
@@ -108,7 +142,12 @@ namespace torrent_library.Model
 
             if (!DownloadProgress[e.Piece][e.Block])
             {
-              
+                //if ((DateTime.Now - LastProgressSaved).TotalSeconds > 5)
+                //{
+                //    LastProgressSaved = DateTime.Now;
+                //    SaveAsJSON();
+                //}
+
                 DownloadedForSpeed += e.Data.Length;
                 Downloaded += e.Data.Length;
 
@@ -119,6 +158,7 @@ namespace torrent_library.Model
                 Buffer.BlockCopy(e.Data, 0, DownloadedPieces[e.Piece], e.Block * blockSize, e.Data.Length);
 
                 DownloadProgress[e.Piece][e.Block] = true;
+
                 if (PieceProgress[e.Piece])
                 {
                     byte[] val;
@@ -149,43 +189,69 @@ namespace torrent_library.Model
         {
             try
             {
-                Instance = FromJSON(infoHash, twtInfo);
-                return Instance;
+                return FromJSON(infoHash, twtInfo);
+
             }
             catch (Exception e)
             {
-                Instance = new TorrentManager(PeerIDUtil.GenerateRandom(), twtInfo);
-                return Instance;
+                return new TorrentManager(PeerIDUtil.GenerateRandom(), twtInfo); ;
             }
+        }
+
+        public void RemoveTorrent()
+        {
+            var path = Settings.Instance.DownloadPath + @"/JSON/" + Torrent.OriginalInfoHash.ToUpperInvariant() + ".json";
+            if (File.Exists(path))
+                File.Delete(path);
+
+
+            var torrentFilePath = Settings.Instance.DownloadPath + @"/" + Torrent.OriginalInfoHash.ToUpperInvariant() + ".torrent";
+            if (File.Exists(torrentFilePath))
+                File.Delete(torrentFilePath);
         }
 
         public void SaveAsJSON()
         {
-            var path = @"C:/torrents/" + Torrent.OriginalInfoHash.ToUpperInvariant() + ".json";
+            if (!Directory.Exists(Settings.Instance.DownloadPath + @"/JSON/"))
+            {
+                DirectoryInfo di = Directory.CreateDirectory(AppContext.BaseDirectory + @"/JSON/");
+                di.Attributes = FileAttributes.Directory | FileAttributes.Hidden;
+            }
+            var path = Settings.Instance.DownloadPath + @"/JSON/" + Torrent.OriginalInfoHash.ToUpperInvariant() + ".json";
             var json = new JavaScriptSerializer().Serialize(new DownloadInfo()
             {
                 PeerID = this.PeerID,
                 Downloaded = this.Downloaded,
                 DownloadProgress = this.DownloadProgress
             });
-
             File.WriteAllText(path, json);
+
         }
 
         public static TorrentManager FromJSON(string infoHASH, TorrentWithTrackerInfo twtInfo)
         {
-            var path = @"C:/torrents/" + infoHASH.ToUpperInvariant() + ".json";
+
+            if (!Directory.Exists(Settings.Instance.DownloadPath + @"/JSON/"))
+            {
+                DirectoryInfo di = Directory.CreateDirectory(Settings.Instance.DownloadPath + @"/JSON/");
+                di.Attributes = FileAttributes.Directory | FileAttributes.Hidden;
+            }
+
+            var path = Settings.Instance.DownloadPath + @"/JSON/" + infoHASH.ToUpperInvariant() + ".json";
             var json = File.ReadAllText(path);
 
             var jObject = JObject.Parse(json);
             var jToken = jObject.GetValue("DownloadProgress");
             var jToken2 = jObject.GetValue("PeerID");
+            var downloaded = jObject.GetValue("Downloaded");
             var downloadProgress = jToken.ToObject(typeof(bool[][]));
             var peerID = jToken2.ToObject(typeof(byte[]));
+            var _downloaded = downloaded;
 
             var obj = new DownloadInfo();
             obj.DownloadProgress = downloadProgress as bool[][];
             obj.PeerID = peerID as byte[];
+            obj.Downloaded = _downloaded.ToObject<long>();
 
             var manager = new TorrentManager(obj, twtInfo);
 

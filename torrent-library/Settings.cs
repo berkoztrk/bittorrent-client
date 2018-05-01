@@ -12,6 +12,8 @@ namespace torrent_library
     {
         public string DownloadPath { get; set; }
 
+        public static Settings Instance = Settings.Load();
+
         public Settings() { }
 
         public static Settings Load()

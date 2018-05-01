@@ -23,7 +23,7 @@ namespace bittorrent_client
     public partial class MainWindow : Window
     {
         private SqTorrentContext Context;
-        private Settings settings = null;
+        private Settings settings = Settings.Load();
 
         private Window DownloadWindow { get; set; }
 
@@ -51,9 +51,14 @@ namespace bittorrent_client
 
         private void BtnAddMangetOK_Click(object sender, RoutedEventArgs e)
         {
-            TorrentProcessor processor = new TorrentProcessor();
-            processor.StartProcess(TextBoxMagnet.Text);
-            Context.AddProcessor(processor);
+            if (!string.IsNullOrWhiteSpace(TextBoxMagnet.Text))
+            {
+                TorrentProcessor processor = new TorrentProcessor();
+                processor.StartProcess(TextBoxMagnet.Text);
+                Context.AddProcessor(processor);
+
+            }
+
             AddMagnetPopup.IsOpen = false;
         }
 

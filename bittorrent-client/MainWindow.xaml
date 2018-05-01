@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:bittorrent_client"
         mc:Ignorable="d"
         WindowStartupLocation="CenterScreen"
-        Title="Squeek" Height="600" Width="800">
+        Title="WPF Bittorrent Client" Height="600" Width="800">
 
     <StackPanel>
         <Menu IsMainMenu="true">
@@ -23,7 +23,12 @@
               >
             <StackPanel  Background="#eee">
                 <Label Margin="8" FontSize="12" Content="Add new torrent from magnet link"></Label>
-                <TextBox Margin="8 0" Padding="4" Name="TextBoxMagnet" ></TextBox>
+                <StackPanel Orientation="Horizontal">
+                    <Label Margin="8" FontSize="12" Content="Magnet Link:"></Label>
+                    <TextBox Margin="8 0"   Name="TextBoxMagnet" Width="292" Height="22" >
+                    </TextBox>
+                </StackPanel>
+
                 <StackPanel HorizontalAlignment="Right"  Orientation="Horizontal">
                     <Button Click="BtnAddMangetOK_Click" Padding="4" Margin="8" Name="BtnAddMangetOK">OK</Button>
                     <Button Click="BtnAddMagnetCancel_Click" Padding="4" Margin="8" Name="BtnAddMagnetCancel" Content="Cancel" />
@@ -44,7 +49,7 @@
                 <Label Margin="8" FontSize="12" Content="Change application settings"></Label>
                 <StackPanel  Orientation="Horizontal">
                     <Label Margin="8" FontSize="10" Content="Download Path"></Label>
-                    <TextBox HorizontalContentAlignment="Stretch" Padding="4" Name="txtDownloadPath" ></TextBox>
+                    <TextBox  Name="txtDownloadPath" Width="297" Height="22" ></TextBox>
                 </StackPanel>
 
                 <StackPanel HorizontalAlignment="Right"  Orientation="Horizontal">
@@ -60,10 +65,5 @@
 
         </Frame>
     </StackPanel>
-
-
-    <!--<Window.Content>
-        <local:DownloadWindow></local:DownloadWindow>
-    </Window.Content>-->
 
 </Window>

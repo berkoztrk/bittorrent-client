@@ -115,7 +115,7 @@ namespace torrent_library.Tracker
                 ConnectionID = trackerConnectResponse.ConnectionID;
 
                 IsConnected = true;
-                ConsoleUtil.WriteSuccess("Connected to tracker => {0}:{1}",  _TrackerAddress.Host, _TrackerAddress.Port);
+                ConsoleUtil.WriteSuccess("Connected to tracker => {0}:{1}", _TrackerAddress.Host, _TrackerAddress.Port);
             }
         }
 
@@ -153,7 +153,7 @@ namespace torrent_library.Tracker
 
                 var scrapeResponse = new ScrapeResponse(result);
                 _ScrapeResponse = scrapeResponse;
-                ConsoleUtil.WriteSuccess("Scraped successfully! => {0}:{1}",_TrackerAddress.Host, _TrackerAddress.Port);
+                ConsoleUtil.WriteSuccess("Scraped successfully! => {0}:{1}", _TrackerAddress.Host, _TrackerAddress.Port);
                 ConsoleUtil.Write("Seeders = {0}, Leechers {1}, Completed = {2}, ResultLength = {3}", scrapeResponse.Seeders, scrapeResponse.Leechers, scrapeResponse.Completed, scrapeResponse.ResponseLength);
 
             }
@@ -191,7 +191,7 @@ namespace torrent_library.Tracker
 
                 ConsoleUtil.WriteSuccess("Announced successfully " + _TrackerAddress.FullAddress);
 
-                Manager.AddPeers(_AnnounceResponse.IPPort.Select(x => new Peer(x)).ToList());
+                Manager.AddPeers(_AnnounceResponse.IPPort.Select(x => new Peer(x, Manager)).ToList());
 
                 if (_AnnounceResponse.Interval * 1000 < Int32.MaxValue)
                 {

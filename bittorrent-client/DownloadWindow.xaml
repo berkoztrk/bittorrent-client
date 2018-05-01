@@ -7,21 +7,16 @@
       mc:Ignorable="d" 
       d:DesignHeight="600" d:DesignWidth="800" Style="{StaticResource Common}" 
       >
-    <DataGrid SelectedItem="{Binding SelectedRow, Mode=TwoWay}"   LoadingRow="DataGridDownloads_LoadingRow"  x:Name="DataGridDownloads" ItemsSource="{Binding DownloadsDataSource}" CanUserAddRows="false" Margin="0"  AutoGenerateColumns="False">
-        <DataGrid.Resources>
-            <ContextMenu x:Key="RowMenu" DataContext="{Binding PlacementTarget, RelativeSource={RelativeSource Self}}">
-                <MenuItem Header="Start" Click="MenuItemStart_Click" />
-                <MenuItem Header="Pause" Click="MenuItemStop_Click" />
-                <MenuItem Header="Open in explorer" Click="OpenInExplorer_Click"></MenuItem>
-                
-            </ContextMenu>
-        </DataGrid.Resources>
 
-        <DataGrid.RowStyle>
-            <Style TargetType="DataGridRow" >
-                <Setter Property="ContextMenu" Value="{StaticResource RowMenu}" />
-            </Style>
-        </DataGrid.RowStyle>
+    <DataGrid HorizontalAlignment="Stretch" VerticalAlignment="Stretch" SelectedItem="{Binding SelectedItem}"   LoadingRow="DataGridDownloads_LoadingRow"  x:Name="DataGridDownloads" ItemsSource="{Binding DownloadsDataSource}" CanUserAddRows="false" Margin="0"  AutoGenerateColumns="False">
+
+        <DataGrid.ContextMenu>
+            <ContextMenu>
+                <!--<MenuItem Name="StartDownload" Click="StartDownload_Click"   Header="Pause"></MenuItem>-->
+                <MenuItem Name="RemoveTorrent" Click="RemoveTorrent_Click"  Header="Remove"></MenuItem>
+            </ContextMenu>
+        </DataGrid.ContextMenu>
+
         <DataGrid.Columns>
 
             <DataGridTextColumn Width="3*" Binding="{Binding Name}" Header="Name" IsReadOnly="True"/>
@@ -37,6 +32,9 @@
                 </DataGridTemplateColumn.CellTemplate>
             </DataGridTemplateColumn>
             <DataGridTextColumn Header="Download Speed" Width="3*" Binding="{Binding DownloadSpeed}"></DataGridTextColumn>
+            <DataGridTextColumn Header="Status" Width="3*" Binding="{Binding TorrentStatus}"></DataGridTextColumn>
         </DataGrid.Columns>
+
+
     </DataGrid>
 </Page>

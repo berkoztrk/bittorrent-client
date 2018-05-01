@@ -70,7 +70,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Downloader\TorrentDownloader.cs" />
-    <Compile Include="DownloadProcessor.cs" />
     <Compile Include="MagnetUtils\MagnetToTorrent.cs" />
     <Compile Include="Model\AnnounceAction.cs" />
     <Compile Include="Model\AnnounceRequest.cs" />

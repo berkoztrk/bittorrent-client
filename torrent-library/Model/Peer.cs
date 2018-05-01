@@ -81,12 +81,12 @@ namespace torrent_library.Model
             return IP + ":" + Port;
         }
 
-        public Peer(IPPortPair pair)
+        public Peer(IPPortPair pair, TorrentManager manager)
         {
             IP = pair.IP.ToString();
             Port = pair.Port;
             IsDisconnected = true;
-            Manager = TorrentManager.GetInstance();
+            Manager = manager;
             Bitfield = new bool[Manager.Torrent.NumberOfPieces];
             IsBlockRequested = new bool[Manager.Torrent.NumberOfPieces][];
             for (int i = 0; i < IsBlockRequested.Length; i++)
@@ -362,6 +362,7 @@ namespace torrent_library.Model
                 Interlocked.Decrement(ref this.requestCount);
             //RequestCount = RequestCount > 0 ? RequestCount - 1 : RequestCount;
 
+            Manager._TorrentStatus = TorrentStatus.Downloading;
             var reqBlock = new RequestedBlock(index, block, TorrentPieceUtil.GetBlockSize(0, 0, Manager.Torrent));
             reqBlock.Data = data;
 

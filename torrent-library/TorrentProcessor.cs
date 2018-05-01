@@ -25,12 +25,8 @@ namespace torrent_library
         {
             var torrent = TorrentParser.ParseTorrent(magnetURI);
             TorrentManager torrentManager = TorrentManager.Create(torrent._Torrent.OriginalInfoHash, torrent);
-
             Manager = torrentManager;
-
             TrackerManager.ConnectToTrackers(torrent, torrentManager);
-
-
             var torrentDownloader = new TorrentDownloader(torrentManager);
             Downloader = torrentDownloader;
             new Thread(new ThreadStart(() =>
